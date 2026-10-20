@@ -1,22 +1,22 @@
 <div>
-    <button wire:click="openModal" class="bg-blue-600 hover:bg-blue-700 text-white font-black py-2 px-4 rounded-lg shadow text-sm flex items-center gap-1.5 transition">
-        <span>➕</span>
-        <span>Nuevo Procedimiento</span>
+    <button type="button"
+            wire:click="openModal"
+            class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black font-extrabold py-2 px-4 rounded-lg shadow-xs text-xs inline-flex items-center gap-1.5 transition min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-focus">
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        <span>Crear Procedimiento</span>
     </button>
 
     @if($isOpen)
-        <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs overflow-y-auto h-full w-full flex justify-center items-start pt-6 pb-10 z-50">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl mx-4 border border-slate-200">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-xs overflow-y-auto h-full w-full flex justify-center items-start pt-6 pb-10 z-50" role="dialog" aria-modal="true" aria-labelledby="modal-new-proc-title">
+            <div class="bg-ui-card text-ui-fg rounded-xl shadow-2xl w-full max-w-5xl mx-4 border border-ui-border">
                 
-                <div class="flex justify-between items-center bg-slate-900 text-white px-6 py-4 rounded-t-xl">
+                <div class="flex justify-between items-center bg-ui-sidebar text-brand-white px-6 py-4 rounded-t-xl border-b border-white/10">
                     <div>
-                        <span class="text-[10px] font-black uppercase tracking-widest text-blue-400 block">CONSOLA DE RECEPCIÓN Y DESPACHO CAD</span>
-                        <h3 class="text-lg font-black">Ingreso de Nuevo Procedimiento</h3>
+                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-brand-lime-light block">CONSOLA DE RECEPCIÓN Y DESPACHO CAD</span>
+                        <h3 id="modal-new-proc-title" class="text-lg font-extrabold">Ingreso de Nuevo Procedimiento</h3>
                     </div>
-                    <button type="button" wire:click="closeModal" class="text-slate-400 hover:text-white focus:outline-none">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                    <button type="button" wire:click="closeModal" aria-label="Cerrar modal" class="text-brand-white/70 hover:text-brand-white focus:outline-none p-1">
+                        <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
                     </button>
                 </div>
 
@@ -297,12 +297,13 @@
                         @endif
 
                         <!-- 4. Asignación Inmediata -->
-                        <div class="{{ $is_preventive ? 'lg:col-span-6' : 'lg:col-span-2' }} bg-blue-50 p-4 rounded-xl border border-blue-200">
-                            <h4 class="font-black text-blue-900 text-sm mb-3 border-b border-blue-200 pb-1.5">
-                                🚓 4. Despacho de Unidad
+                        <div class="{{ $is_preventive ? 'lg:col-span-6' : 'lg:col-span-2' }} bg-ui-subtle p-4 rounded-xl border border-ui-border">
+                            <h4 class="font-black text-ui-fg text-sm mb-3 border-b border-ui-border pb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-car-on text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i>
+                                <span>4. Asignar Unidad</span>
                             </h4>
 
-                            <label class="block text-xs font-bold uppercase text-blue-900 mb-1">
+                            <label class="block text-xs font-bold uppercase text-ui-muted mb-1">
                                 Despachar Móvil (Opcional)
                             </label>
                             @php
@@ -321,10 +322,10 @@
 
                             @if($is_preventive)
                                 <div class="mt-3">
-                                    <label class="block text-xs font-bold uppercase text-blue-900">
+                                    <label class="block text-xs font-bold uppercase text-ui-muted">
                                         Detalle del Patrullaje Preventivo
                                     </label>
-                                    <textarea wire:model="initial_description" rows="2" placeholder="Indique objetivo o punto focal del patrullaje preventivo..." class="mt-1 block w-full rounded-lg border-blue-300 shadow-sm text-sm"></textarea>
+                                    <textarea wire:model="initial_description" rows="2" placeholder="Indique objetivo o punto focal del patrullaje preventivo..." class="mt-1 block w-full rounded-lg border-ui-border shadow-xs text-sm"></textarea>
                                 </div>
                             @endif
                         </div>
@@ -332,17 +333,15 @@
                     </div>
 
                     <!-- Botones -->
-                    <div class="flex justify-end space-x-3 border-t border-slate-200 pt-4">
-                        <button type="button"
-                            wire:click="closeModal"
-                            class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2.5 px-5 rounded-lg text-sm transition">
+                    <div class="flex justify-end space-x-3 border-t border-ui-border pt-4">
+                        <x-cad.button type="button" variant="secondary" size="lg" wire:click="closeModal">
                             Cancelar
-                        </button>
+                        </x-cad.button>
 
-                        <button type="submit"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-6 rounded-lg shadow text-sm transition">
-                            ✓ Registrar Procedimiento
-                        </button>
+                        <x-cad.button type="submit" variant="primary" size="lg">
+                            <i class="fa-solid fa-check" aria-hidden="true"></i>
+                            <span>Registrar Procedimiento</span>
+                        </x-cad.button>
                     </div>
 
                 </form>

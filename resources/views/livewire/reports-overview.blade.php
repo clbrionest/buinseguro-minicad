@@ -1,38 +1,60 @@
-<div class="py-6 max-w-7xl mx-auto sm:px-6 lg:px-8">
-    <div class="mb-6 flex justify-between items-center">
-        <h2 class="text-2xl font-bold text-gray-800">Reportes Históricos y Estadísticas</h2>
+<div class="py-6 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+            <h1 class="text-2xl font-extrabold text-ui-fg flex items-center gap-2.5">
+                <span class="w-8 h-8 rounded-lg bg-brand-cobalt text-brand-lime inline-flex items-center justify-center text-sm shadow-xs">
+                    <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
+                </span>
+                <span>Reportes Históricos, Estadísticas y Trazabilidad SLA</span>
+            </h1>
+            <p class="text-xs text-ui-muted mt-1">
+                Período consultado: <strong class="font-mono cad-tabular text-ui-fg">{{ $startDate ? \Carbon\Carbon::parse($startDate)->format('d/m/Y') : 'Inicio' }} — {{ $endDate ? \Carbon\Carbon::parse($endDate)->format('d/m/Y') : 'Hoy' }}</strong>
+            </p>
+        </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow p-5 border-l-4 border-blue-500">
-            <h4 class="text-gray-500 text-xs font-bold uppercase">Total Procedimientos</h4>
-            <span class="text-3xl font-black text-gray-800">{{ $totalCases }}</span>
-        </div>
-        <div class="bg-white rounded-lg shadow p-5 border-l-4 border-green-500">
-            <h4 class="text-gray-500 text-xs font-bold uppercase">Casos Cerrados</h4>
-            <span class="text-3xl font-black text-gray-800">{{ $closedCases }}</span>
-        </div>
-        <div class="bg-white rounded-lg shadow p-5 border-l-4 border-yellow-500">
-            <h4 class="text-gray-500 text-xs font-bold uppercase">Tasa de Cierre</h4>
-            <span class="text-3xl font-black text-gray-800">
-                {{ $totalCases > 0 ? round(($closedCases / $totalCases) * 100) : 0 }}%
-            </span>
-        </div>
-        <div class="bg-white rounded-lg shadow p-5 border-l-4 border-indigo-500">
-            <h4 class="text-gray-500 text-xs font-bold uppercase">SLA Despacho Prom.</h4>
-            <span class="text-2xl font-black text-indigo-700">
-                {{ !is_null($avgDispatchSla) ? $avgDispatchSla . ' min' : 'S/D' }}
-            </span>
-        </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <x-cad.kpi-card
+            label="Total Procedimientos"
+            :value="$totalCases"
+            tone="cobalt"
+            icon="fa-solid fa-folder-open"
+            period="Casos en el rango filtrado"
+        />
+        <x-cad.kpi-card
+            label="Casos Cerrados"
+            :value="$closedCases"
+            tone="completed"
+            icon="fa-solid fa-circle-check"
+            period="Procedimientos finalizados"
+        />
+        <x-cad.kpi-card
+            label="Tasa de Cierre"
+            :value="$totalCases > 0 ? round(($closedCases / $totalCases) * 100) : 0"
+            unit="%"
+            tone="lime"
+            icon="fa-solid fa-percent"
+            period="Efectividad operacional"
+        />
+        <x-cad.kpi-card
+            label="SLA Despacho Prom."
+            :value="!is_null($avgDispatchSla) ? $avgDispatchSla : 'S/D'"
+            :unit="!is_null($avgDispatchSla) ? 'min' : null"
+            tone="progress"
+            icon="fa-solid fa-stopwatch"
+            period="Recepción a despacho"
+        />
         @php
-            $arrivalCardBorder = is_null($avgArrivalSla) ? 'border-gray-400 text-gray-700' : ($avgArrivalSla <= 12 ? 'border-green-600 text-green-700' : ($avgArrivalSla <= 20 ? 'border-yellow-500 text-yellow-700' : 'border-red-600 text-red-700'));
+            $arrivalTone = is_null($avgArrivalSla) ? 'neutral' : ($avgArrivalSla <= 12 ? 'completed' : ($avgArrivalSla <= 20 ? 'warning' : 'critical'));
         @endphp
-        <div class="bg-white rounded-lg shadow p-5 border-l-4 {{ $arrivalCardBorder }}">
-            <h4 class="text-gray-500 text-xs font-bold uppercase">SLA Arribo Prom.</h4>
-            <span class="text-2xl font-black">
-                {{ !is_null($avgArrivalSla) ? $avgArrivalSla . ' min' : 'S/D' }}
-            </span>
-        </div>
+        <x-cad.kpi-card
+            label="SLA Arribo Prom."
+            :value="!is_null($avgArrivalSla) ? $avgArrivalSla : 'S/D'"
+            :unit="!is_null($avgArrivalSla) ? 'min' : null"
+            :tone="$arrivalTone"
+            icon="fa-solid fa-gauge-high"
+            period="Despacho a arribo en lugar"
+        />
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" wire:ignore>

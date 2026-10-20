@@ -415,6 +415,46 @@ class CadSecurityAndAuditTest extends TestCase
         $this->assertNotSoftDeleted('system_catalog_items', ['id' => $eq->id]);
         $this->assertArrayHasKey('videowall_central_4k', \App\Models\SystemCatalogItem::roomEquipmentsMap());
     }
+
+    public function test_design_system_theme_preference_persistence_and_semantic_views(): void
+    {
+        $operator = User::factory()->create(['name' => 'Operador Tema', 'theme_preference' => 'system']);
+        $operator->assignRole('Operador');
+
+        // 1. Cambiar preferencia de tema a dark
+        $this->actingAs($operator)
+            ->postJson(route('profile.theme'), ['theme' => 'dark'])
+            ->assertOk()
+            ->assertJson(['status' => 'ok', 'theme' => 'dark']);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $operator->id,
+            'theme_preference' => 'dark',
+        ]);
+
+        // 2. Rechazar valores inválidos
+        $this->actingAs($operator)
+            ->postJson(route('profile.theme'), ['theme' => 'neon'])
+            ->assertStatus(422);
+
+        // 3. Verificar renderizado de consola operacional y terreno con tokens del Design System v1.0
+        $this->actingAs($operator->fresh())
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('data-theme-preference="dark"', false)
+            ->assertSee('aria-label="Selector de apariencia del sistema"', false)
+            ->assertSee('Cola Operativa de Procedimientos Activos');
+
+        $inspector = User::factory()->create(['name' => 'Inspector Terreno', 'theme_preference' => 'light']);
+        $inspector->assignRole('Inspector');
+
+        $this->actingAs($inspector)
+            ->get(route('field.inspector'))
+            ->assertOk()
+            ->assertSee('data-theme-preference="light"', false)
+            ->assertSee('Consola Móvil Operativa');
+    }
 }
+
 
 

@@ -1,3 +1,152 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    :root,
+    [data-theme="light"] {
+        color-scheme: light;
+        --brand-cobalt: #2C2E83;
+        --brand-cobalt-soft: #EEF0FB;
+        --brand-cobalt-light: #D5D8F4;
+        --brand-cobalt-mid: #858BD1;
+        --brand-cobalt-deep: #1D1F59;
+        --brand-lime: #94C11E;
+        --brand-lime-soft: #F5FAE9;
+        --brand-lime-light: #E8F3CD;
+        --brand-lime-mid: #C5DF81;
+        --brand-lime-deep: #5B7812;
+        --brand-white: #FFFFFF;
+        --brand-silver: #CDC7C6;
+        --brand-black: #08080A;
+
+        --priority-critical: #DC3545;
+        --priority-high: #EA8C23;
+        --priority-warning: #B98500;
+        --state-progress: #2563EB;
+        --state-completed: #16835D;
+        --state-neutral: #64748B;
+
+        /* Semantic Theme Tokens — Light */
+        --ui-app: #F4F5F8;
+        --ui-card: #FFFFFF;
+        --ui-sidebar: #2C2E83;
+        --ui-subtle: #F7F8FA;
+        --ui-fg: #08080A;
+        --ui-muted: #646879;
+        --ui-border: #E3E5EB;
+        --ui-primary: #2C2E83;
+        --ui-primary-fg: #FFFFFF;
+        --ui-focus: #2C2E83;
+    }
+
+    [data-theme="dark"] {
+        color-scheme: dark;
+        /* Semantic Theme Tokens — Dark */
+        --ui-app: #10131D;
+        --ui-card: #1C2130;
+        --ui-sidebar: #171A30;
+        --ui-subtle: #252A3A;
+        --ui-fg: #F7F8FA;
+        --ui-muted: #A8ADBD;
+        --ui-border: #303647;
+        --ui-primary: #858BD1;
+        --ui-primary-fg: #08080A;
+        --ui-focus: #C5DF81;
+    }
+
+    body {
+        background-color: var(--ui-app);
+        color: var(--ui-fg);
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    /* Accessible Focus Ring */
+    *:focus-visible {
+        outline: 2px solid var(--ui-focus);
+        outline-offset: 2px;
+    }
+}
+
+@layer components {
+    .cad-card {
+        background-color: var(--ui-card);
+        border: 1px solid var(--ui-border);
+        color: var(--ui-fg);
+        border-radius: 0.5rem;
+    }
+
+    .cad-subtle {
+        background-color: var(--ui-subtle);
+        border: 1px solid var(--ui-border);
+        color: var(--ui-fg);
+    }
+
+    .cad-tabular {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+/* Harmonized Dark Mode Adaptation for Legacy Surfaces & Form Controls */
+[data-theme="dark"] .bg-white:not(.keep-light) {
+    background-color: var(--ui-card) !important;
+    color: var(--ui-fg);
+}
+
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-slate-100,
+[data-theme="dark"] .bg-gray-100 {
+    background-color: var(--ui-subtle) !important;
+}
+
+[data-theme="dark"] .text-slate-900,
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-gray-900,
+[data-theme="dark"] .text-gray-800 {
+    color: var(--ui-fg) !important;
+}
+
+[data-theme="dark"] .text-slate-700,
+[data-theme="dark"] .text-slate-600,
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-gray-700,
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-gray-500 {
+    color: var(--ui-muted) !important;
+}
+
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-300,
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-300,
+[data-theme="dark"] .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+[data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+[data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--ui-border) !important;
+}
+
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+    background-color: var(--ui-subtle);
+    border-color: var(--ui-border);
+    color: var(--ui-fg);
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+    color: var(--ui-muted);
+    opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

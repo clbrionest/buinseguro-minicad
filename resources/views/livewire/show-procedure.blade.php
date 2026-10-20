@@ -1,50 +1,38 @@
 <div class="py-6 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
     
     {{-- BARRA SUPERIOR DE COMANDO DEL PROCEDIMIENTO --}}
-    <div class="bg-slate-900 text-white rounded-xl shadow-lg p-4 mb-6 flex flex-wrap justify-between items-center gap-4">
+    <div class="bg-ui-sidebar text-brand-white rounded-xl shadow-md p-4 mb-6 flex flex-wrap justify-between items-center gap-4 border border-white/10">
         <div class="flex items-center gap-4">
-            <a href="{{ route('dashboard') }}" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition">
-                &larr; Panel Central
+            <a href="{{ route('dashboard') }}" class="bg-white/10 hover:bg-white/20 text-brand-white border border-white/20 px-3 py-1.5 rounded-lg text-xs font-bold transition inline-flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-left text-[11px]" aria-hidden="true"></i>
+                <span>Panel Central</span>
             </a>
             <div>
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-black bg-blue-600 text-white px-2.5 py-0.5 rounded">FOLIO #{{ $procedure->id }}</span>
-                    <span class="text-xs font-bold text-slate-300">{{ $procedure->created_at->format('d/m/Y H:i:s') }}</span>
-                    @php
-                        $statusBadge = match($procedure->status) {
-                            'Pendiente' => 'bg-red-600 text-white',
-                            'En Camino' => 'bg-amber-500 text-slate-900',
-                            'En el Lugar' => 'bg-blue-500 text-white',
-                            'Derivado' => 'bg-orange-500 text-white',
-                            'Cerrado' => 'bg-emerald-600 text-white',
-                            default => 'bg-slate-600 text-white',
-                        };
-                    @endphp
-                    <span class="text-xs font-black px-2.5 py-0.5 rounded-full {{ $statusBadge }}">
-                        {{ $procedure->status }}
-                    </span>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-extrabold font-mono cad-tabular bg-brand-lime text-brand-black px-2.5 py-0.5 rounded">FOLIO #{{ $procedure->id }}</span>
+                    <span class="text-xs font-mono cad-tabular font-bold text-brand-cobalt-light">{{ $procedure->created_at->format('d/m/Y H:i:s') }}</span>
+                    <x-cad.procedure-status :status="$procedure->status" class="bg-white/15! text-white! border-white/25!" />
                 </div>
-                <h2 class="text-xl font-black mt-1">
-                    {{ $procedure->procedureType->name ?? 'Procedimiento' }} — <span class="text-slate-300 font-semibold">{{ $procedure->sector->name ?? '' }}</span>
-                </h2>
+                <h1 class="text-xl font-extrabold mt-1 text-brand-white">
+                    {{ $procedure->procedureType->name ?? 'Procedimiento' }} — <span class="text-brand-lime-light font-semibold">{{ $procedure->sector->name ?? '' }}</span>
+                </h1>
             </div>
         </div>
 
         @php $sla = $procedure->sla_traffic_light; @endphp
-        <div class="flex items-center gap-3">
-            <span class="border px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 {{ $sla['badge'] }}">
-                <span class="w-2.5 h-2.5 rounded-full {{ $sla['dot'] }}"></span>
-                SLA: {{ $sla['label'] }}
-            </span>
-            <a href="{{ route('procedures.print', $procedure->id) }}" target="_blank" class="bg-white hover:bg-slate-100 text-slate-900 text-xs font-black py-2 px-3.5 rounded-lg shadow flex items-center gap-1.5 transition">
-                🖨️ Ficha Oficial / PDF
+        <div class="flex flex-wrap items-center gap-2.5">
+            <x-cad.priority-badge :sla="$sla" class="bg-black/25! text-white! border-white/20!" />
+            <a href="{{ route('procedures.print', $procedure->id) }}" target="_blank" class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black text-xs font-extrabold py-2 px-3.5 rounded-lg shadow-xs inline-flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-print" aria-hidden="true"></i>
+                <span>Ficha Oficial / PDF</span>
             </a>
         </div>
     </div>
 
     @if (session()->has('message'))
-        <div class="bg-emerald-50 border-l-4 border-emerald-500 text-emerald-900 p-4 mb-6 rounded-lg shadow-sm font-bold text-sm">
-            ✓ {{ session('message') }}
+        <div class="bg-[#16835D]/15 border-l-4 border-[#16835D] text-ui-fg p-4 mb-6 rounded-lg shadow-xs font-bold text-sm flex items-center gap-2" role="status">
+            <i class="fa-solid fa-circle-check text-[#16835D]" aria-hidden="true"></i>
+            <span>{{ session('message') }}</span>
         </div>
     @endif
 

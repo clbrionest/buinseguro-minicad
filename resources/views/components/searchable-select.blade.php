@@ -162,13 +162,13 @@
     <div
         @click="toggleDropdown()"
         :class="[
-            disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : 'cursor-pointer',
-            open ? 'ring-2 ring-blue-500 border-blue-500' : '',
+            disabled ? 'opacity-60 cursor-not-allowed bg-ui-subtle' : 'cursor-pointer',
+            open ? 'ring-2 ring-ui-focus border-ui-focus' : '',
             @js($dark)
-                ? 'bg-slate-950 border-slate-700 text-white hover:border-slate-500'
-                : 'bg-white border-slate-300 text-slate-800 hover:border-blue-400'
+                ? 'bg-[#10131D] border-[#303647] text-[#F7F8FA] hover:border-brand-cobalt-mid'
+                : 'bg-ui-card border-ui-border text-ui-fg hover:border-brand-cobalt dark:hover:border-brand-cobalt-mid'
         ]"
-        class="w-full rounded-lg border shadow-sm px-3 py-2 text-sm flex items-center justify-between gap-2 transition select-none min-h-[38px]"
+        class="w-full rounded-lg border shadow-xs px-3 py-2 text-sm flex items-center justify-between gap-2 transition select-none min-h-[38px]"
     >
         <div class="truncate flex-1 text-left">
             <template x-if="selectedOption">
@@ -180,7 +180,7 @@
                 </div>
             </template>
             <template x-if="!selectedOption">
-                <span class="{{ $dark ? 'text-slate-400' : 'text-slate-400' }} font-normal truncate block">
+                <span class="text-ui-muted font-normal truncate block">
                     {{ $placeholder }}
                 </span>
             </template>
@@ -192,13 +192,13 @@
                     type="button"
                     x-show="selectedOption && !disabled"
                     @click.stop="clearSelection()"
-                    class="text-slate-400 hover:text-rose-500 px-1 rounded transition"
+                    class="text-ui-muted hover:text-priority-critical px-1 rounded transition"
                     title="Limpiar selección"
                 >
                     <i class="fa-solid fa-xmark text-xs"></i>
                 </button>
             @endif
-            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-150" :class="open ? 'rotate-180 text-blue-500' : ''"></i>
+            <i class="fa-solid fa-chevron-down text-[10px] text-ui-muted transition-transform duration-150" :class="open ? 'rotate-180 text-ui-primary' : ''"></i>
         </div>
     </div>
 
@@ -212,12 +212,12 @@
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-95"
         style="display: none;"
-        class="absolute left-0 right-0 mt-1 rounded-xl bg-white border border-slate-300 shadow-2xl z-50 overflow-hidden text-slate-800"
+        class="absolute left-0 right-0 mt-1 rounded-xl bg-ui-card border border-ui-border shadow-2xl z-50 overflow-hidden text-ui-fg"
     >
         {{-- Barra de búsqueda --}}
-        <div class="p-2 bg-slate-50 border-b border-slate-200">
+        <div class="p-2 bg-ui-subtle border-b border-ui-border">
             <div class="relative flex items-center">
-                <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute left-3 pointer-events-none"></i>
+                <i class="fa-solid fa-magnifying-glass text-ui-muted text-xs absolute left-3 pointer-events-none"></i>
                 <input
                     x-ref="searchInput"
                     type="text"
@@ -227,18 +227,18 @@
                     @keydown.arrow-up.prevent="moveHighlight(-1)"
                     @keydown.enter.prevent="selectHighlighted()"
                     placeholder="{{ $searchPlaceholder }}"
-                    class="w-full pl-8 pr-7 py-1.5 text-xs font-medium bg-white border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-800"
+                    class="w-full pl-8 pr-7 py-1.5 text-xs font-medium bg-ui-card border border-ui-border rounded-lg focus:border-ui-focus focus:ring-1 focus:ring-ui-focus text-ui-fg"
                 >
                 <button
                     type="button"
                     x-show="search.length > 0"
                     @click="search = ''; $refs.searchInput.focus()"
-                    class="absolute right-2 text-slate-400 hover:text-slate-600"
+                    class="absolute right-2 text-ui-muted hover:text-ui-fg"
                 >
                     <i class="fa-solid fa-circle-xmark text-xs"></i>
                 </button>
             </div>
-            <div class="flex justify-between items-center mt-1 px-1 text-[10px] text-slate-400 font-semibold">
+            <div class="flex justify-between items-center mt-1 px-1 text-[10px] text-ui-muted font-semibold">
                 <span x-text="filteredOptions.length + ' resultado(s)'"></span>
                 <span>↑↓ navegar · Enter elegir</span>
             </div>
@@ -247,7 +247,7 @@
         {{-- Lista de resultados filtrados --}}
         <ul
             x-ref="optionsList"
-            class="max-h-60 overflow-y-auto divide-y divide-slate-100 py-1 text-xs"
+            class="max-h-60 overflow-y-auto divide-y divide-ui-border py-1 text-xs"
         >
             <template x-for="(opt, idx) in filteredOptions" :key="opt.value + '_' + idx">
                 <li
@@ -256,8 +256,8 @@
                     :data-highlighted="highlightIndex === idx"
                     :class="[
                         String(value) === String(opt.value)
-                            ? 'bg-blue-600 text-white font-bold'
-                            : (highlightIndex === idx ? 'bg-blue-50 text-blue-900 font-semibold' : 'text-slate-700 hover:bg-slate-50')
+                            ? 'bg-brand-cobalt text-white dark:bg-brand-cobalt-mid dark:text-brand-black font-bold'
+                            : (highlightIndex === idx ? 'bg-ui-subtle text-ui-fg font-semibold' : 'text-ui-fg hover:bg-ui-subtle')
                     ]"
                     class="px-3.5 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors"
                 >
@@ -265,7 +265,7 @@
                         <span x-text="opt.label"></span>
                         <template x-if="opt.meta">
                             <span
-                                :class="String(value) === String(opt.value) ? 'text-blue-100' : 'text-slate-400'"
+                                :class="String(value) === String(opt.value) ? 'opacity-85' : 'text-ui-muted'"
                                 class="ml-1.5 text-[11px] font-normal"
                                 x-text="'· ' + opt.meta"
                             ></span>

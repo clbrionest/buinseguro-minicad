@@ -24,6 +24,14 @@ Route::middleware(['auth'])->group(function () {
     Route::view('profile', 'profile')
         ->name('profile');
 
+    Route::post('/profile/theme', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'theme' => ['required', 'string', 'in:light,dark,system'],
+        ]);
+        $request->user()->update(['theme_preference' => $validated['theme']]);
+        return response()->json(['status' => 'ok', 'theme' => $validated['theme']]);
+    })->name('profile.theme');
+
     Route::view('/documentacion', 'documentation')
         ->name('system.docs');
 
