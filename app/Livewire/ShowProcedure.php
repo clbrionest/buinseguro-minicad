@@ -435,6 +435,28 @@ class ShowProcedure extends Component
         session()->flash('message', 'Procedimiento vinculado y cerrado exitosamente.');
     }
 
+    public function applyResolution(string $resolution): void
+    {
+        if (trim($resolution) === '') {
+            return;
+        }
+
+        if (str_contains(strtoupper($resolution), 'DERIVAD')) {
+            $this->status = 'Derivado';
+            $this->action_type = 'Coordinación Externa (Carabineros / SAMU / Bomberos)';
+        } else {
+            $this->status = 'Cerrado';
+            $this->action_type = 'Cierre de Procedimiento';
+        }
+
+        $prefix = "Resolución Oficial: [{$resolution}]. ";
+        if (!str_starts_with($this->description, 'Resolución Oficial:')) {
+            $this->description = trim($prefix . $this->description);
+        } else {
+            $this->description = preg_replace('/^Resolución Oficial:\s*\[[^\]]+\]\.\s*/u', $prefix, $this->description);
+        }
+    }
+
     public function render()
     {
         // Historial previo de otros procedimientos del mismo teléfono
@@ -456,11 +478,14 @@ class ShowProcedure extends Component
             'Cierre de Procedimiento',
         ]);
 
+        $resolutions = \App\Models\SystemCatalogItem::namesFor('procedure_resolutions', []);
+
         return view('livewire.show-procedure', [
             'devices' => Device::withCount('activeProcedures')->orderBy('name')->get(),
             'procedureTypes' => ProcedureType::orderBy('name')->get(),
             'previousCallerCases' => $previousCallerCases,
             'logActions' => $logActions,
+            'resolutions' => $resolutions,
         ])->layout('layouts.app');
     }
 }

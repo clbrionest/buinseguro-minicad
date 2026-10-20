@@ -470,12 +470,21 @@
             <div class="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
                 <h3 class="text-base font-black text-slate-800 mb-4">✍️ Registrar Actuación / Novedad en Bitácora</h3>
                 <form wire:submit.prevent="saveLog">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-600">Tipo de Acción</label>
                             <select wire:model="action_type" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm text-sm font-semibold">
                                 @foreach($logActions as $actOption)
                                     <option value="{{ $actOption }}">{{ $actOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-600">Resolución / Derivación Rápida</label>
+                            <select wire:change="applyResolution($event.target.value)" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm text-sm font-semibold text-indigo-800">
+                                <option value="">-- Seleccionar resolución (opcional) --</option>
+                                @foreach($resolutions ?? [] as $resOption)
+                                    <option value="{{ $resOption }}">{{ $resOption }}</option>
                                 @endforeach
                             </select>
                         </div>

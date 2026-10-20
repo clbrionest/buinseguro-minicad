@@ -30,7 +30,26 @@ class LoginForm extends Form
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only(['email', 'password']), $this->remember)) {
+        $credentials = $this->only(['email', 'password']);
+
+        if (! Auth::attempt($credentials, $this->remember)) {
+            // Permitir ingreso tanto con "nombre.apellido@buinseguro.cl" como "nombreapellido@buinseguro.cl"
+            $normalizedEmail = mb_strtolower(trim($this->email));
+            if (str_ends_with($normalizedEmail, '@buinseguro.cl')) {
+                $localNoDots = str_replace(['.', ' '], '', Str::before($normalizedEmail, '@'));
+                $matchedUser = \App\Models\User::where('email', 'like', '%@buinseguro.cl')
+                    ->get()
+                    ->first(function ($u) use ($localNoDots) {
+                        $uLocal = str_replace('.', '', Str::before(mb_strtolower($u->email), '@'));
+                        return $uLocal === $localNoDots;
+                    });
+
+                if ($matchedUser && Auth::attempt(['email' => $matchedUser->email, 'password' => $this->password], $this->remember)) {
+                    RateLimiter::clear($this->throttleKey());
+                    return;
+                }
+            }
+
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

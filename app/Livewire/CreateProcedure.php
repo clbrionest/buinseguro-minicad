@@ -310,6 +310,8 @@ class CreateProcedure extends Component
 
     public function render()
     {
-        return view('livewire.create-procedure');
+        return view('livewire.create-procedure', [
+            'housingComplexes' => \App\Models\SystemCatalogItem::namesFor('housing_complexes'),
+        ]);
     }
 }

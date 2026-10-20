@@ -65,6 +65,21 @@ class SystemCatalogItem extends Model
             'description' => 'Clasificación general al declarar una contingencia comunal (Frente de Mal Tiempo, Corte de Suministro, Operativo Especial).',
             'has_shift_meta' => false,
         ],
+        'procedure_resolutions' => [
+            'label' => 'Resoluciones y Derivaciones (Cierre)',
+            'description' => 'Resultados y derivaciones oficiales al resolver o derivar un procedimiento (Derivado a Carabineros, PDI, Solucionado en el Lugar, Infracción, etc.).',
+            'has_shift_meta' => false,
+        ],
+        'patrol_modalities' => [
+            'label' => 'Modalidades de Patrullaje',
+            'description' => 'Tipos de patrullaje operativo (Preventivo, OS14- Mixto, No Procede).',
+            'has_shift_meta' => false,
+        ],
+        'housing_complexes' => [
+            'label' => 'Conjuntos Habitacionales / Villas',
+            'description' => 'Catastro oficial de villas, poblaciones, condominios y conjuntos habitacionales de la comuna de Buin.',
+            'has_shift_meta' => false,
+        ],
     ];
 
     /**

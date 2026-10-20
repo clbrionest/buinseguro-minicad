@@ -8,11 +8,12 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // El orden es importante: primero los roles, luego los usuarios
+        // Orden jerárquico: Roles -> Sectores -> Tipos de Procedimiento -> Catálogos Central 2026 -> Usuarios (Telefonistas e Inspectores)
         $this->call([
             RoleSeeder::class,
             SectorSeeder::class,
-            // ProcedureTypeSeeder::class, // (Descomenta cuando lo llenes)
+            ProcedureTypeSeeder::class,
+            CentralAdministrationCatalogSeeder::class,
             UserSeeder::class,
         ]);
     }

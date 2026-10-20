@@ -166,12 +166,20 @@
 
                                 <div>
                                     <label class="block text-xs font-bold uppercase text-slate-600">
-                                        Referencia / Block / Color Casa
+                                        Conjunto Habitacional / Villa / Referencia
                                     </label>
                                     <input type="text"
                                         wire:model="address_reference"
-                                        placeholder="Ej: Frente a plaza, reja negra"
+                                        list="housingComplexesList"
+                                        placeholder="Ej: Valles del Maipo, Villa Santa Adela, Block..."
                                         class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm text-sm">
+                                    @if(!empty($housingComplexes))
+                                        <datalist id="housingComplexesList">
+                                            @foreach($housingComplexes as $hc)
+                                                <option value="{{ $hc }}"></option>
+                                            @endforeach
+                                        </datalist>
+                                    @endif
                                 </div>
                             </div>
                         </div>

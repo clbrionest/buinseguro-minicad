@@ -10,13 +10,13 @@ class RoleSeeder extends Seeder
 {
     public function run(): void
     {
-        // Limpiar la caché de Spatie antes de crear roles
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Crear los roles usando el modelo de Spatie
-        Role::create(['name' => 'Administrador']);
-        Role::create(['name' => 'Supervisor']);
-        Role::create(['name' => 'Operador']);
-        Role::create(['name' => 'Inspector']);
+        foreach (['Administrador', 'Supervisor', 'Operador', 'Inspector'] as $roleName) {
+            Role::firstOrCreate([
+                'name' => $roleName,
+                'guard_name' => 'web',
+            ]);
+        }
     }
 }
