@@ -175,7 +175,7 @@ class ManageCatalogs extends Component
         // Reglas de validación estrictas con unicidad por tabla o por grupo de catálogo
         if ($this->isSystemCatalogGroup()) {
             $uniqueRule = Rule::unique('system_catalog_items', 'name')
-                ->where(fn($q) => $q->where('catalog_group', $this->activeTab));
+                ->where(fn($q) => $q->where('catalog_group', $this->activeTab)->whereNull('deleted_at'));
             if ($this->editingId) {
                 $uniqueRule->ignore($this->editingId);
             }
@@ -232,11 +232,15 @@ class ManageCatalogs extends Component
                 ];
             }
 
+            $defaultCode = $this->activeTab === 'room_equipments'
+                ? strtolower(Str::slug($this->name, '_'))
+                : strtoupper(Str::slug($this->name, '_'));
+
             $data = [
                 'catalog_group' => $this->activeTab,
                 'name' => $this->name,
-                'code' => $this->code ?: strtoupper(Str::slug($this->name, '_')),
-                'icon' => $this->icon ?: 'fa-tag',
+                'code' => $this->code ?: $defaultCode,
+                'icon' => $this->icon ?: ($this->activeTab === 'room_equipments' ? 'fa-server' : 'fa-tag'),
                 'color' => $this->color ?: 'blue',
                 'meta' => $meta,
                 'sort_order' => (int) $this->sort_order,
@@ -265,7 +269,23 @@ class ManageCatalogs extends Component
             );
             session()->flash('message', 'Registro actualizado correctamente.');
         } else {
-            $item = $modelClass::create($data);
+            if ($this->isSystemCatalogGroup()) {
+                $trashedMatch = SystemCatalogItem::onlyTrashed()
+                    ->where('catalog_group', $this->activeTab)
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower($this->name)])
+                    ->first();
+
+                if ($trashedMatch) {
+                    $trashedMatch->restore();
+                    $trashedMatch->update($data);
+                    $item = $trashedMatch;
+                } else {
+                    $item = $modelClass::create($data);
+                }
+            } else {
+                $item = $modelClass::create($data);
+            }
+
             AuditLog::record(
                 'catalog.created',
                 'Catálogos',
@@ -340,21 +360,50 @@ class ManageCatalogs extends Component
                 AuditLog::record(
                     'catalog.deleted',
                     'Catálogos',
-                    "Eliminación en catálogo [{$this->activeTab}]: {$itemName}"
+                    ($this->isSystemCatalogGroup() ? "Baja lógica (Soft-Delete) en catálogo [{$this->activeTab}]: {$itemName}" : "Eliminación en catálogo [{$this->activeTab}]: {$itemName}")
                 );
-                session()->flash('message', 'Registro eliminado.');
+                session()->flash('message', $this->isSystemCatalogGroup() ? "Registro «{$itemName}» dado de baja (Soft-Delete). Puedes restaurarlo cuando lo necesites." : 'Registro eliminado.');
             }
         } catch (\Illuminate\Database\QueryException $e) {
             session()->flash('error', 'No se puede eliminar este registro porque está asociado a procedimientos o turnos existentes.');
         }
     }
 
+    public function restore($id)
+    {
+        abort_unless(auth()->user()?->hasRole('Administrador'), 403);
+
+        if (!$this->isSystemCatalogGroup()) {
+            return;
+        }
+
+        $item = SystemCatalogItem::onlyTrashed()->find($id);
+        if ($item) {
+            $item->restore();
+            $item->update(['is_active' => true]);
+            AuditLog::record(
+                'catalog.restored',
+                'Catálogos',
+                "Restauración de registro (Soft-Delete) en catálogo [{$this->activeTab}]: {$item->name}",
+                $item
+            );
+            session()->flash('message', "Registro «{$item->name}» restaurado exitosamente.");
+        }
+    }
+
     public function render()
     {
+        $trashedItems = collect();
+
         if ($this->isSystemCatalogGroup()) {
             $items = SystemCatalogItem::where('catalog_group', $this->activeTab)
                 ->orderBy('sort_order')
                 ->orderBy('name')
+                ->get();
+
+            $trashedItems = SystemCatalogItem::onlyTrashed()
+                ->where('catalog_group', $this->activeTab)
+                ->orderBy('deleted_at', 'desc')
                 ->get();
         } else {
             $modelClass = $this->getModelClass();
@@ -363,6 +412,7 @@ class ManageCatalogs extends Component
 
         return view('livewire.manage-catalogs', [
             'items' => $items,
+            'trashedItems' => $trashedItems,
             'presets' => ProcedureType::getPresetTemplates(),
             'systemGroups' => SystemCatalogItem::GROUPS,
         ])->layout('layouts.app');

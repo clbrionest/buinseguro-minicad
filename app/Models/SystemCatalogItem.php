@@ -3,10 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class SystemCatalogItem extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'catalog_group',
         'name',
@@ -25,6 +29,11 @@ class SystemCatalogItem extends Model
     ];
 
     public const GROUPS = [
+        'room_equipments' => [
+            'label' => 'Equipos en Sala (Apertura/Cierre)',
+            'description' => 'Equipos y sistemas críticos de Sala CAD verificados en la apertura y cierre de turno (permite agregar o dar de baja lógica con Soft-Delete).',
+            'has_shift_meta' => false,
+        ],
         'operator_shift_blocks' => [
             'label' => 'Horarios Turnos Operadores (Sala)',
             'description' => 'Bloques horarios rotativos de sala (ej: Turno 1 08:00-14:00, Turno 2 14:00-20:00, Turno 3 20:00-08:00) y dotación mínima sugerida.',
@@ -136,5 +145,79 @@ class SystemCatalogItem extends Model
             'gray', 'slate' => 'bg-slate-100 text-slate-800 border-slate-300',
             default => 'bg-blue-100 text-blue-800 border-blue-300',
         };
+    }
+
+    /**
+     * Devuelve el mapa [code_key => Nombre Equipo] de los equipos en sala activos (no eliminados por soft-delete).
+     */
+    public static function roomEquipmentsMap(): array
+    {
+        $fallback = [
+            'central_pbx' => 'Central PBX',
+            'radio_vhf' => 'Radio VHF',
+            'camaras_cctv' => 'Cámaras CCTV',
+            'gps_flota' => 'GPS Flota',
+        ];
+
+        try {
+            if (!Schema::hasTable('system_catalog_items')) {
+                return $fallback;
+            }
+
+            $items = self::where('catalog_group', 'room_equipments')
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+
+            if ($items->isEmpty()) {
+                return $fallback;
+            }
+
+            $map = [];
+            foreach ($items as $item) {
+                $key = !empty($item->code) ? strtolower($item->code) : Str::slug($item->name, '_');
+                $map[$key] = $item->name;
+            }
+
+            return $map;
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+    }
+
+    /**
+     * Resuelve la etiqueta legible de un equipo en sala (incluyendo equipos dados de baja con Soft-Delete para actas históricas).
+     */
+    public static function resolveEquipmentLabel(string $key): string
+    {
+        $defaults = [
+            'central_pbx' => 'Central PBX',
+            'radio_vhf' => 'Radio VHF',
+            'camaras_cctv' => 'Cámaras CCTV',
+            'gps_flota' => 'GPS Flota',
+            'enlace_red' => 'Enlace Internet / Red CAD',
+            'respaldo_ups' => 'Respaldo UPS / Generador',
+        ];
+
+        try {
+            if (Schema::hasTable('system_catalog_items')) {
+                $found = self::withTrashed()
+                    ->where('catalog_group', 'room_equipments')
+                    ->where(function ($q) use ($key) {
+                        $q->whereRaw('LOWER(code) = ?', [strtolower($key)])
+                          ->orWhereRaw('LOWER(name) = ?', [strtolower(str_replace('_', ' ', $key))]);
+                    })
+                    ->first();
+
+                if ($found) {
+                    return $found->name;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback
+        }
+
+        return $defaults[$key] ?? ucwords(str_replace('_', ' ', $key));
     }
 }

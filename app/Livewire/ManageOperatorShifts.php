@@ -45,9 +45,14 @@ class ManageOperatorShifts extends Component
     public $recipient_email = '';
     public $recipient_role = '';
 
+    // Mantenedor rápido de Equipos en Sala (con Soft-Delete)
+    public $showEquipmentsModal = false;
+    public $new_equipment_name = '';
+
     public function mount()
     {
         $this->filterDate = Carbon::now()->format('Y-m-d');
+        $this->syncRoomEquipmentsDefaults();
 
         $blocks = $this->getShiftBlocks();
         $hour = (int) now()->format('G');
@@ -76,9 +81,23 @@ class ManageOperatorShifts extends Component
             $this->shift_log_notes = $activeShift->shift_log_notes ?? '';
             $this->handover_notes = $activeShift->handover_notes ?? '';
             if (is_array($activeShift->equipment_status)) {
-                $this->equipment_status = array_merge($this->equipment_status, $activeShift->equipment_status);
+                foreach ($this->equipment_status as $eqKey => $defaultVal) {
+                    if (isset($activeShift->equipment_status[$eqKey])) {
+                        $this->equipment_status[$eqKey] = $activeShift->equipment_status[$eqKey];
+                    }
+                }
             }
         }
+    }
+
+    public function syncRoomEquipmentsDefaults(): void
+    {
+        $map = SystemCatalogItem::roomEquipmentsMap();
+        $updated = [];
+        foreach ($map as $eqKey => $eqLabel) {
+            $updated[$eqKey] = $this->equipment_status[$eqKey] ?? 'Operativo';
+        }
+        $this->equipment_status = $updated;
     }
 
     public function getShiftBlocks(): array
@@ -518,6 +537,129 @@ class ManageOperatorShifts extends Component
         ShiftReportRecipient::destroy($id);
     }
 
+    /**
+     * Agrega un nuevo Equipo en Sala (o lo restaura si estaba en Soft-Delete)
+     */
+    public function addRoomEquipment()
+    {
+        abort_unless(Auth::user()?->hasAnyRole(['Administrador', 'Supervisor']), 403);
+
+        $this->new_equipment_name = trim($this->new_equipment_name);
+        $this->validate([
+            'new_equipment_name' => 'required|string|min:2|max:120',
+        ], [
+            'new_equipment_name.required' => 'Ingrese el nombre del equipo en sala.',
+        ]);
+
+        $codeKey = strtolower(\Illuminate\Support\Str::slug($this->new_equipment_name, '_'));
+
+        $existingActive = SystemCatalogItem::where('catalog_group', 'room_equipments')
+            ->where(function ($q) use ($codeKey) {
+                $q->whereRaw('LOWER(name) = ?', [mb_strtolower($this->new_equipment_name)])
+                  ->orWhere('code', $codeKey);
+            })
+            ->first();
+
+        if ($existingActive) {
+            $this->addError('new_equipment_name', 'Este equipo ya se encuentra activo en la sala.');
+            return;
+        }
+
+        $trashed = SystemCatalogItem::onlyTrashed()
+            ->where('catalog_group', 'room_equipments')
+            ->where(function ($q) use ($codeKey) {
+                $q->whereRaw('LOWER(name) = ?', [mb_strtolower($this->new_equipment_name)])
+                  ->orWhere('code', $codeKey);
+            })
+            ->first();
+
+        if ($trashed) {
+            $trashed->restore();
+            $trashed->update([
+                'name' => $this->new_equipment_name,
+                'code' => $codeKey,
+                'is_active' => true,
+            ]);
+            $eqItem = $trashed;
+        } else {
+            $maxOrder = (int) SystemCatalogItem::where('catalog_group', 'room_equipments')->max('sort_order');
+            $eqItem = SystemCatalogItem::create([
+                'catalog_group' => 'room_equipments',
+                'name' => $this->new_equipment_name,
+                'code' => $codeKey,
+                'icon' => 'fa-server',
+                'color' => 'blue',
+                'sort_order' => $maxOrder + 1,
+                'is_active' => true,
+            ]);
+        }
+
+        $this->equipment_status[$codeKey] = 'Operativo';
+        $this->new_equipment_name = '';
+
+        AuditLog::record(
+            'equipment.added',
+            'Turnos de Sala',
+            "Equipo en sala agregado/habilitado para apertura y cierre de turno: {$eqItem->name}.",
+            $eqItem
+        );
+
+        session()->flash('equipment_message', "Equipo «{$eqItem->name}» agregado para verificación en apertura y cierre de turno.");
+    }
+
+    /**
+     * Quita (Soft-Delete) un Equipo en Sala para que no aparezca en futuras aperturas/cierres sin perder historial
+     */
+    public function softDeleteRoomEquipment($id)
+    {
+        abort_unless(Auth::user()?->hasAnyRole(['Administrador', 'Supervisor']), 403);
+
+        $item = SystemCatalogItem::where('catalog_group', 'room_equipments')->find($id);
+        if ($item) {
+            $codeKey = strtolower($item->code ?: \Illuminate\Support\Str::slug($item->name, '_'));
+            $itemName = $item->name;
+            $item->delete(); // Soft-Delete
+
+            unset($this->equipment_status[$codeKey]);
+
+            AuditLog::record(
+                'equipment.soft_deleted',
+                'Turnos de Sala',
+                "Equipo en sala dado de baja (Soft-Delete): {$itemName}."
+            );
+
+            session()->flash('equipment_message', "Equipo «{$itemName}» quitado (Soft-Delete). Puedes restaurarlo cuando lo necesites.");
+        }
+    }
+
+    /**
+     * Restaura un Equipo en Sala previamente quitado con Soft-Delete
+     */
+    public function restoreRoomEquipment($id)
+    {
+        abort_unless(Auth::user()?->hasAnyRole(['Administrador', 'Supervisor']), 403);
+
+        $item = SystemCatalogItem::onlyTrashed()
+            ->where('catalog_group', 'room_equipments')
+            ->find($id);
+
+        if ($item) {
+            $item->restore();
+            $item->update(['is_active' => true]);
+            $codeKey = strtolower($item->code ?: \Illuminate\Support\Str::slug($item->name, '_'));
+            $this->equipment_status[$codeKey] = 'Operativo';
+
+            AuditLog::record(
+                'equipment.restored',
+                'Turnos de Sala',
+                "Equipo en sala restaurado desde Soft-Delete: {$item->name}.",
+                $item
+            );
+
+            session()->flash('equipment_message', "Equipo «{$item->name}» restaurado y activo para apertura/cierre de turno.");
+        }
+    }
+
     public function render()
     {
         $activeShift = OperatorShift::with(['openedBy', 'receivedBy', 'crew'])
@@ -554,6 +696,16 @@ class ManageOperatorShifts extends Component
         $operatorsList = User::orderBy('name')->get();
         $recipients = ShiftReportRecipient::orderBy('name')->get();
 
+        $roomEquipmentsMap = SystemCatalogItem::roomEquipmentsMap();
+        $roomEquipmentItems = SystemCatalogItem::where('catalog_group', 'room_equipments')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+        $trashedRoomEquipments = SystemCatalogItem::onlyTrashed()
+            ->where('catalog_group', 'room_equipments')
+            ->orderByDesc('deleted_at')
+            ->get();
+
         // Contadores de dotación en el formulario actual
         $filledCrew = collect($this->crewMembers)->filter(fn($m) => !empty($m['user_id']));
         $assignedPhoneOps = $filledCrew->filter(fn($m) => str_contains(strtolower($m['station_role'] ?? ''), 'telef'))->count();
@@ -572,6 +724,9 @@ class ManageOperatorShifts extends Component
             'blockQuota' => $this->getCurrentBlockQuota(),
             'assignedPhoneOps' => $assignedPhoneOps,
             'assignedCameraOps' => $assignedCameraOps,
+            'roomEquipmentsMap' => $roomEquipmentsMap,
+            'roomEquipmentItems' => $roomEquipmentItems,
+            'trashedRoomEquipments' => $trashedRoomEquipments,
         ])->layout('layouts.app');
     }
 }

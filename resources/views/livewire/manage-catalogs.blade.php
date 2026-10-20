@@ -374,8 +374,8 @@
                                 <button wire:click="edit({{ $item->id }})" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-1 rounded text-xs font-bold transition">
                                     <i class="fa-solid fa-pen mr-1"></i> Editar
                                 </button>
-                                <button onclick="confirm('¿Estás seguro de eliminar este registro?') || event.stopImmediatePropagation()" wire:click="delete({{ $item->id }})" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3 py-1 rounded text-xs font-bold transition">
-                                    <i class="fa-solid fa-trash mr-1"></i> Eliminar
+                                <button onclick="confirm('¿Confirmas dar de baja / eliminar este registro?') || event.stopImmediatePropagation()" wire:click="delete({{ $item->id }})" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3 py-1 rounded text-xs font-bold transition">
+                                    <i class="fa-solid fa-trash mr-1"></i> {{ isset($systemGroups[$activeTab]) ? 'Quitar (Soft-Delete)' : 'Eliminar' }}
                                 </button>
                             </td>
                         </tr>
@@ -387,5 +387,28 @@
                 </tbody>
             </table>
         </div>
+
+        {{-- PAPELERA / REGISTROS EN BAJA LÓGICA (SOFT-DELETE) CON OPCIÓN DE RESTAURAR --}}
+        @if(isset($trashedItems) && $trashedItems->count() > 0)
+            <div class="mt-6 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <h4 class="text-xs font-black uppercase tracking-wider text-slate-600 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-box-archive text-amber-600"></i>
+                    <span>Registros Quitado(s) en Baja Lógica (Soft-Delete) — {{ $trashedItems->count() }}</span>
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    @foreach($trashedItems as $trashed)
+                        <div class="bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 flex items-center justify-between text-xs shadow-sm">
+                            <div>
+                                <div class="font-bold text-slate-500 line-through">{{ $trashed->name }}</div>
+                                <div class="text-[10px] text-slate-400 font-mono">Baja: {{ $trashed->deleted_at?->format('d/m/Y H:i') }}</div>
+                            </div>
+                            <button type="button" wire:click="restore({{ $trashed->id }})" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded font-bold text-xs transition inline-flex items-center gap-1">
+                                <i class="fa-solid fa-rotate-left"></i> Restaurar
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 </div>

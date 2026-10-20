@@ -376,5 +376,45 @@ class CadSecurityAndAuditTest extends TestCase
         $this->assertSame(2, $shift->crew->where('pivot.station_role', 'Operador Telefónico')->count());
         $this->assertSame(4, $shift->crew->where('pivot.station_role', 'Operador de Cámaras (CCTV)')->count());
     }
+
+    public function test_room_equipment_crud_and_soft_delete_in_shifts_and_catalogs(): void
+    {
+        $supervisor = User::factory()->create(['name' => 'Supervisor Equipos']);
+        $supervisor->assignRole('Supervisor');
+
+        // 1. Agregar nuevo equipo en sala desde Turno de Sala
+        Livewire::actingAs($supervisor)
+            ->test(ManageOperatorShifts::class)
+            ->set('new_equipment_name', 'Videowall Central 4K')
+            ->call('addRoomEquipment')
+            ->assertHasNoErrors();
+
+        $eq = \App\Models\SystemCatalogItem::where('catalog_group', 'room_equipments')
+            ->where('name', 'Videowall Central 4K')
+            ->first();
+
+        $this->assertNotNull($eq);
+        $this->assertArrayHasKey('videowall_central_4k', \App\Models\SystemCatalogItem::roomEquipmentsMap());
+
+        // 2. Quitar equipo con Soft-Delete -> desaparece del mapa activo pero conserva resolución histórica
+        Livewire::actingAs($supervisor)
+            ->test(ManageOperatorShifts::class)
+            ->call('softDeleteRoomEquipment', $eq->id)
+            ->assertHasNoErrors();
+
+        $this->assertSoftDeleted('system_catalog_items', ['id' => $eq->id]);
+        $this->assertArrayNotHasKey('videowall_central_4k', \App\Models\SystemCatalogItem::roomEquipmentsMap());
+        $this->assertSame('Videowall Central 4K', \App\Models\SystemCatalogItem::resolveEquipmentLabel('videowall_central_4k'));
+
+        // 3. Restaurar equipo desde Soft-Delete
+        Livewire::actingAs($supervisor)
+            ->test(ManageOperatorShifts::class)
+            ->call('restoreRoomEquipment', $eq->id)
+            ->assertHasNoErrors();
+
+        $this->assertNotSoftDeleted('system_catalog_items', ['id' => $eq->id]);
+        $this->assertArrayHasKey('videowall_central_4k', \App\Models\SystemCatalogItem::roomEquipmentsMap());
+    }
 }
+
 

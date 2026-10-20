@@ -178,13 +178,15 @@
                                 3. Novedades de Sala, Equipos y Consignas de Traspaso
                             </div>
 
-                            @if(!empty($shift->equipment_status))
+                            @if(!empty($shift->equipment_status) && is_array($shift->equipment_status))
                                 <div style="margin-bottom: 12px; font-size: 12px; background-color: #f8fafc; padding: 10px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                                    <strong>Estado Técnico de Sala:</strong>
-                                    Radio VHF: <strong>{{ $shift->equipment_status['radio_vhf'] ?? 'Operativo' }}</strong> ·
-                                    Central PBX: <strong>{{ $shift->equipment_status['central_pbx'] ?? 'Operativo' }}</strong> ·
-                                    Cámaras CCTV: <strong>{{ $shift->equipment_status['camaras_cctv'] ?? 'Operativo' }}</strong> ·
-                                    GPS Flota: <strong>{{ $shift->equipment_status['gps_flota'] ?? 'Operativo' }}</strong>
+                                    <strong>Estado Técnico de Equipos en Sala:</strong>
+                                    @foreach($shift->equipment_status as $eqKey => $eqState)
+                                        <span style="display: inline-block; margin-left: 6px;">
+                                            {{ \App\Models\SystemCatalogItem::resolveEquipmentLabel((string) $eqKey) }}:
+                                            <strong>{{ $eqState }}</strong>{{ !$loop->last ? ' · ' : '' }}
+                                        </span>
+                                    @endforeach
                                 </div>
                             @endif
 

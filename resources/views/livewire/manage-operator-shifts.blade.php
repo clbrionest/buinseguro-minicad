@@ -16,6 +16,10 @@
 
         <div class="flex flex-wrap items-center gap-2">
             @hasanyrole('Administrador|Supervisor')
+                <button wire:click="$set('showEquipmentsModal', true)" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-3.5 rounded-lg shadow text-xs flex items-center gap-2 transition">
+                    <i class="fa-solid fa-server"></i>
+                    <span>Equipos en Sala ({{ count($roomEquipmentsMap ?? []) }})</span>
+                </button>
                 <button wire:click="$set('showRecipientsModal', true)" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-3.5 rounded-lg shadow text-xs flex items-center gap-2 transition">
                     <i class="fa-solid fa-envelope-circle-check text-blue-400"></i>
                     <span>Destinatarios Directores ({{ $recipients->where('is_active', true)->count() }})</span>
@@ -163,19 +167,21 @@
                 </div>
 
                 {{-- Estado de Sistemas de Sala al Armar/Abrir --}}
-                <div class="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <div class="col-span-2 text-[11px] font-black uppercase text-slate-600">
-                        <i class="fa-solid fa-server mr-1"></i> Estado de Equipos de Sala
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div class="sm:col-span-2 flex justify-between items-center">
+                        <span class="text-[11px] font-black uppercase text-slate-600">
+                            <i class="fa-solid fa-server mr-1 text-indigo-600"></i> Estado de Equipos en Sala (Apertura)
+                        </span>
+                        @hasanyrole('Administrador|Supervisor')
+                            <button type="button" wire:click="$set('showEquipmentsModal', true)" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline">
+                                + Agregar / Quitar Equipos
+                            </button>
+                        @endhasanyrole
                     </div>
-                    @foreach([
-                        'central_pbx' => 'Central PBX',
-                        'radio_vhf' => 'Radio VHF',
-                        'camaras_cctv' => 'Cámaras CCTV',
-                        'gps_flota' => 'GPS Flota'
-                    ] as $eqKey => $eqLabel)
+                    @foreach(($roomEquipmentsMap ?? []) as $eqKey => $eqLabel)
                         <div class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded border border-slate-200 text-xs">
-                            <span class="font-bold text-slate-700">{{ $eqLabel }}</span>
-                            <select wire:model="equipment_status.{{ $eqKey }}" class="text-[11px] font-bold border-0 py-0.5 pl-1 pr-5 rounded bg-slate-100">
+                            <span class="font-bold text-slate-700 truncate mr-2">{{ $eqLabel }}</span>
+                            <select wire:model="equipment_status.{{ $eqKey }}" class="text-[11px] font-bold border-0 py-0.5 pl-1 pr-5 rounded bg-slate-100 shrink-0">
                                 <option value="Operativo">Operativo</option>
                                 <option value="Con Intermitencia">Intermitente</option>
                                 <option value="Fuera de Servicio">Falla</option>
@@ -367,6 +373,32 @@
                         </div>
                     @endif
 
+                    {{-- Verificación de Estado de Equipos en Sala al Cierre de Turno --}}
+                    <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[11px] font-black uppercase text-slate-300">
+                                <i class="fa-solid fa-server mr-1 text-indigo-400"></i> Verificación de Equipos en Sala al Cierre de Turno
+                            </span>
+                            @hasanyrole('Administrador|Supervisor')
+                                <button type="button" wire:click="$set('showEquipmentsModal', true)" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 underline">
+                                    Gestionar Equipos (Agregar / Soft-Delete)
+                                </button>
+                            @endhasanyrole
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            @foreach(($roomEquipmentsMap ?? []) as $eqKey => $eqLabel)
+                                <div class="flex items-center justify-between bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs">
+                                    <span class="font-bold text-slate-200 truncate mr-2">{{ $eqLabel }}</span>
+                                    <select wire:model="equipment_status.{{ $eqKey }}" class="text-[11px] font-bold border-0 py-0.5 pl-1.5 pr-5 rounded bg-slate-800 text-white shrink-0">
+                                        <option value="Operativo">Operativo</option>
+                                        <option value="Con Intermitencia">Intermitente</option>
+                                        <option value="Fuera de Servicio">Falla</option>
+                                    </select>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-bold uppercase text-slate-300 mb-1">
@@ -543,6 +575,95 @@
                             </div>
                         @endforeach
                     </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- MODAL DE MANTENEDOR DE EQUIPOS EN SALA (AGREGAR / QUITAR SOFT-DELETE / RESTAURAR) --}}
+    @if($showEquipmentsModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+                <div class="bg-slate-900 text-white px-5 py-4 flex justify-between items-center">
+                    <h3 class="font-black text-sm uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-server text-indigo-400"></i>
+                        <span>Mantenedor de Equipos en Sala (Apertura y Cierre)</span>
+                    </h3>
+                    <button wire:click="$set('showEquipmentsModal', false)" class="text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <div class="p-5 space-y-4">
+                    @if(session()->has('equipment_message'))
+                        <div class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-2 rounded text-xs font-bold">
+                            {{ session('equipment_message') }}
+                        </div>
+                    @endif
+
+                    <form wire:submit.prevent="addRoomEquipment" class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <div class="sm:col-span-9">
+                            <label class="block text-[10px] font-bold uppercase text-slate-600">Nuevo Equipo o Sistema de Sala</label>
+                            <input type="text" wire:model="new_equipment_name" placeholder="Ej: Videowall Central, Servidor Grabación, Dron..." class="mt-0.5 w-full rounded border-slate-300 text-xs">
+                            @error('new_equipment_name') <span class="text-rose-600 text-[11px] font-bold block mt-0.5">{{ $message }}</span> @enderror
+                        </div>
+                        <div class="sm:col-span-3">
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-2 rounded text-xs">
+                                + Agregar
+                            </button>
+                        </div>
+                    </form>
+
+                    <div>
+                        <div class="text-[11px] font-black uppercase text-slate-600 mb-1.5">
+                            Equipos Activos en Apertura y Cierre ({{ ($roomEquipmentItems ?? collect())->count() }})
+                        </div>
+                        <div class="divide-y divide-slate-200 border rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+                            @forelse(($roomEquipmentItems ?? []) as $eqItem)
+                                <div class="px-3.5 py-2.5 flex items-center justify-between text-xs bg-white">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fa-solid {{ $eqItem->icon ?: 'fa-server' }} text-indigo-600"></i>
+                                        <div>
+                                            <div class="font-bold text-slate-800">{{ $eqItem->name }}</div>
+                                            <div class="text-[10px] text-slate-400 font-mono">{{ $eqItem->code }}</div>
+                                        </div>
+                                    </div>
+                                    <button type="button"
+                                            onclick="confirm('¿Dar de baja lógica (Soft-Delete) a este equipo? Dejará de aparecer en próximos turnos pero conservará su historial.') || event.stopImmediatePropagation()"
+                                            wire:click="softDeleteRoomEquipment({{ $eqItem->id }})"
+                                            class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2.5 py-1 rounded font-bold text-[11px] inline-flex items-center gap-1">
+                                        <i class="fa-solid fa-trash-can"></i> Quitar (Soft-Delete)
+                                    </button>
+                                </div>
+                            @empty
+                                <div class="p-4 text-center text-xs text-slate-400">Sin equipos personalizados registrados.</div>
+                            @endforelse
+                        </div>
+                    </div>
+
+                    @if(isset($trashedRoomEquipments) && $trashedRoomEquipments->count() > 0)
+                        <div class="pt-2 border-t border-slate-200">
+                            <div class="text-[11px] font-black uppercase text-amber-700 mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-box-archive"></i>
+                                <span>Equipos Dados de Baja (Soft-Delete) — {{ $trashedRoomEquipments->count() }}</span>
+                            </div>
+                            <div class="divide-y divide-slate-200 border border-amber-200 rounded-xl overflow-hidden max-h-40 overflow-y-auto bg-amber-50/40">
+                                @foreach($trashedRoomEquipments as $tEq)
+                                    <div class="px-3.5 py-2 flex items-center justify-between text-xs">
+                                        <div>
+                                            <span class="font-bold text-slate-500 line-through">{{ $tEq->name }}</span>
+                                            <span class="text-[10px] text-slate-400 ml-1">({{ $tEq->deleted_at?->format('d/m H:i') }})</span>
+                                        </div>
+                                        <button type="button"
+                                                wire:click="restoreRoomEquipment({{ $tEq->id }})"
+                                                class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded font-bold text-[11px] inline-flex items-center gap-1">
+                                            <i class="fa-solid fa-rotate-left"></i> Restaurar
+                                        </button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
