@@ -85,31 +85,31 @@
                 <input type="date" wire:model.live="endDate" class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700">Sector</label>
-                <select wire:model.live="sector_id" class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm">
-                    <option value="">Todos los sectores</option>
-                    @foreach($sectors as $sector)
-                        <option value="{{ $sector->id }}">{{ $sector->name }}</option>
-                    @endforeach
-                </select>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Sector</label>
+                <x-searchable-select
+                    wire:model.live="sector_id"
+                    :options="$sectors"
+                    placeholder="Todos los sectores"
+                    searchPlaceholder="Digite sector..."
+                />
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700">Tipo de Incidente</label>
-                <select wire:model.live="procedure_type_id" class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm">
-                    <option value="">Todos los tipos</option>
-                    @foreach($procedureTypes as $type)
-                        <option value="{{ $type->id }}">{{ $type->name }}</option>
-                    @endforeach
-                </select>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Incidente</label>
+                <x-searchable-select
+                    wire:model.live="procedure_type_id"
+                    :options="$procedureTypes"
+                    placeholder="Todos los tipos"
+                    searchPlaceholder="Digite tipo de incidente..."
+                />
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700">Móvil</label>
-                <select wire:model.live="device_id" class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm">
-                    <option value="">Todos los móviles</option>
-                    @foreach($devices as $dev)
-                        <option value="{{ $dev->id }}">{{ $dev->name }}</option>
-                    @endforeach
-                </select>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Móvil</label>
+                <x-searchable-select
+                    wire:model.live="device_id"
+                    :options="$devices"
+                    placeholder="Todos los móviles"
+                    searchPlaceholder="Digite móvil..."
+                />
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700">Estado</label>

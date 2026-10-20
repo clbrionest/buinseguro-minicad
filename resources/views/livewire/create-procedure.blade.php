@@ -6,9 +6,9 @@
 
     @if($isOpen)
         <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs overflow-y-auto h-full w-full flex justify-center items-start pt-6 pb-10 z-50">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl mx-4 border border-slate-200 overflow-hidden">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl mx-4 border border-slate-200">
                 
-                <div class="flex justify-between items-center bg-slate-900 text-white px-6 py-4">
+                <div class="flex justify-between items-center bg-slate-900 text-white px-6 py-4 rounded-t-xl">
                     <div>
                         <span class="text-[10px] font-black uppercase tracking-widest text-blue-400 block">CONSOLA DE RECEPCIÓN Y DESPACHO CAD</span>
                         <h3 class="text-lg font-black">Ingreso de Nuevo Procedimiento</h3>
@@ -31,32 +31,28 @@
                                     🏷️ 1. Categorización de Inicio
                                 </h4>
 
-                                <label class="block text-xs font-bold uppercase text-slate-600">
+                                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
                                     Tipo de Procedimiento (Al Llamar) *
                                 </label>
-                                <select wire:model.live="procedure_type_id"
-                                    class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm mb-3 text-sm font-semibold focus:border-blue-500">
-                                    <option value="">Seleccione tipificación inicial...</option>
-                                    @foreach($procedureTypes as $type)
-                                        <option value="{{ $type->id }}">
-                                            {{ $type->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                <div class="mb-3">
+                                    <x-searchable-select
+                                        wire:model.live="procedure_type_id"
+                                        :options="$procedureTypes"
+                                        placeholder="Escriba o seleccione tipificación inicial..."
+                                        searchPlaceholder="Digite parte del procedimiento (ej: ruidos, accidente, robo)..."
+                                    />
+                                </div>
                                 @error('procedure_type_id') <span class="text-red-500 text-xs block mb-2">Seleccione un tipo.</span> @enderror
 
-                                <label class="block text-xs font-bold uppercase text-slate-600">
+                                <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
                                     Origen de Ingreso *
                                 </label>
-                                <select wire:model="origin_id"
-                                    class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm text-sm">
-                                    <option value="">Seleccione el origen...</option>
-                                    @foreach($origins as $origin)
-                                        <option value="{{ $origin->id }}">
-                                            {{ $origin->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                                <x-searchable-select
+                                    wire:model="origin_id"
+                                    :options="$origins"
+                                    placeholder="Seleccione el origen..."
+                                    searchPlaceholder="Buscar origen (ej: 1452, cámara, whatsapp)..."
+                                />
                                 @error('origin_id') <span class="text-red-500 text-xs block mt-1">Seleccione el origen.</span> @enderror
                             </div>
 
@@ -81,36 +77,28 @@
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                                 <div>
-                                    <label class="block text-xs font-bold uppercase text-slate-600">
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
                                         Sector Jurisdiccional *
                                     </label>
-                                    <select wire:model="sector_id"
-                                        class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm text-sm">
-                                        <option value="">Seleccione un sector...</option>
-                                        @foreach($sectors as $sector)
-                                            <option value="{{ $sector->id }}">
-                                                {{ $sector->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <x-searchable-select
+                                        wire:model="sector_id"
+                                        :options="$sectors"
+                                        placeholder="Seleccione un sector..."
+                                        searchPlaceholder="Digite sector (ej: Maipo, Viluco, Centro)..."
+                                    />
                                     @error('sector_id') <span class="text-red-500 text-xs block mt-1">Seleccione el sector.</span> @enderror
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold uppercase text-slate-600">
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
                                         Punto de Interés (Hito Rápido)
                                     </label>
-                                    <select wire:model.live="landmark_id"
-                                        class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm text-blue-700 font-semibold text-sm">
-                                        <option value="">
-                                            No es un hito conocido...
-                                        </option>
-                                        @foreach($landmarks as $landmark)
-                                            <option value="{{ $landmark->id }}">
-                                                {{ $landmark->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <x-searchable-select
+                                        wire:model.live="landmark_id"
+                                        :options="$landmarks"
+                                        placeholder="No es un hito conocido..."
+                                        searchPlaceholder="Buscar hito o punto de interés..."
+                                    />
                                 </div>
                             </div>
 
@@ -150,13 +138,13 @@
                             <!-- Dirección Exacta y Referencia -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                    <label class="block text-xs font-bold uppercase text-slate-600">
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
                                         Dirección Exacta Confirmada *
                                     </label>
                                     <input type="text"
                                         wire:model="exact_address"
                                         placeholder="Se autocompleta o escriba manualmente..."
-                                        class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm bg-white text-sm font-medium">
+                                        class="block w-full rounded-lg border-slate-300 shadow-sm bg-white text-sm font-medium">
                                     @error('exact_address')
                                         <span class="text-red-500 text-xs block mt-1">
                                             La dirección es obligatoria.
@@ -165,21 +153,16 @@
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold uppercase text-slate-600">
+                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
                                         Conjunto Habitacional / Villa / Referencia
                                     </label>
-                                    <input type="text"
+                                    <x-searchable-select
                                         wire:model="address_reference"
-                                        list="housingComplexesList"
-                                        placeholder="Ej: Valles del Maipo, Villa Santa Adela, Block..."
-                                        class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm text-sm">
-                                    @if(!empty($housingComplexes))
-                                        <datalist id="housingComplexesList">
-                                            @foreach($housingComplexes as $hc)
-                                                <option value="{{ $hc }}"></option>
-                                            @endforeach
-                                        </datalist>
-                                    @endif
+                                        :options="$housingComplexes ?? []"
+                                        :allowCustom="true"
+                                        placeholder="Buscar Villa / Conjunto o escribir referencia..."
+                                        searchPlaceholder="Digite nombre de Villa, Condominio o referencia libre..."
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -319,20 +302,22 @@
                                 🚓 4. Despacho de Unidad
                             </h4>
 
-                            <label class="block text-xs font-bold uppercase text-blue-900">
+                            <label class="block text-xs font-bold uppercase text-blue-900 mb-1">
                                 Despachar Móvil (Opcional)
                             </label>
-                            <select wire:model="device_id"
-                                class="mt-1 block w-full rounded-lg border-blue-300 shadow-sm text-sm font-semibold">
-                                <option value="">
-                                    ⏳ Sin asignar (Dejar Pendiente en Sala)
-                                </option>
-                                @foreach($devices as $device)
-                                    <option value="{{ $device->id }}">
-                                        {{ $device->name }} — [{{ $device->effective_status }}{{ $device->active_procedures_count > 0 ? ' · ' . $device->active_procedures_count . ' caso(s)' : '' }}]
-                                    </option>
-                                @endforeach
-                            </select>
+                            @php
+                                $deviceOptions = $devices->map(fn($d) => [
+                                    'value' => $d->id,
+                                    'label' => $d->name,
+                                    'meta'  => $d->effective_status . ($d->active_procedures_count > 0 ? ' · ' . $d->active_procedures_count . ' caso(s)' : ''),
+                                ])->values()->toArray();
+                            @endphp
+                            <x-searchable-select
+                                wire:model="device_id"
+                                :options="$deviceOptions"
+                                placeholder="⏳ Sin asignar (Dejar Pendiente en Sala)"
+                                searchPlaceholder="Buscar móvil o estado (ej: Móvil 15, Moto, QAP)..."
+                            />
 
                             @if($is_preventive)
                                 <div class="mt-3">

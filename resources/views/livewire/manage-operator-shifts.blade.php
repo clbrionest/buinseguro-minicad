@@ -125,26 +125,32 @@
                         </div>
                     @enderror
 
-                    <div class="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                    @php
+                        $operatorSelectOptions = $operatorsList->map(fn($op) => [
+                            'value' => $op->id,
+                            'label' => $op->name,
+                            'meta'  => $op->extension ? 'Anexo ' . $op->extension : '',
+                        ])->values()->toArray();
+                    @endphp
+
+                    <div class="space-y-2.5">
                         @foreach($crewMembers as $index => $member)
                             @php
                                 $isCamera = str_contains(strtolower($member['station_role'] ?? ''), 'cámara') || str_contains(strtolower($member['station_role'] ?? ''), 'cctv');
                             @endphp
-                            <div class="bg-white border {{ $isCamera ? 'border-indigo-200' : 'border-blue-200' }} rounded-lg p-2.5 shadow-sm flex gap-2 items-start">
+                            <div wire:key="shift-crew-{{ $index }}" class="bg-white border {{ $isCamera ? 'border-indigo-200' : 'border-blue-200' }} rounded-lg p-2.5 shadow-sm flex gap-2 items-start">
                                 <div class="flex-1 space-y-2">
                                     <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
                                         <div class="sm:col-span-7">
-                                            <select wire:model="crewMembers.{{ $index }}.user_id" class="w-full text-xs font-bold rounded border-slate-300 shadow-sm">
-                                                <option value="">-- Seleccionar Operador --</option>
-                                                @foreach($operatorsList as $op)
-                                                    <option value="{{ $op->id }}">
-                                                        {{ $op->name }} {{ $op->extension ? '(Anexo '.$op->extension.')' : '' }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
+                                            <x-searchable-select
+                                                wire:model="crewMembers.{{ $index }}.user_id"
+                                                :options="$operatorSelectOptions"
+                                                placeholder="-- Buscar Operador --"
+                                                searchPlaceholder="Digite nombre del operador o anexo..."
+                                            />
                                         </div>
                                         <div class="sm:col-span-5">
-                                            <select wire:model.live="crewMembers.{{ $index }}.station_role" class="w-full text-xs font-bold rounded {{ $isCamera ? 'border-indigo-300 bg-indigo-50 text-indigo-900' : 'border-blue-300 bg-blue-50 text-blue-900' }}">
+                                            <select wire:model.live="crewMembers.{{ $index }}.station_role" class="w-full text-xs font-bold rounded-lg min-h-[38px] {{ $isCamera ? 'border-indigo-300 bg-indigo-50 text-indigo-900' : 'border-blue-300 bg-blue-50 text-blue-900' }}">
                                                 @foreach($stationRoles as $sRole)
                                                     <option value="{{ $sRole }}">{{ $sRole }}</option>
                                                 @endforeach
@@ -419,12 +425,13 @@
                             <label class="block text-xs font-bold uppercase text-slate-300 mb-1">
                                 Operador / Jefe de Sala Entrante que Recibe el Turno
                             </label>
-                            <select wire:model="received_by_user_id" class="w-full rounded-lg bg-slate-950 border-slate-700 text-white text-xs font-bold">
-                                <option value="">-- Seleccione Operador Entrante (Relevo) --</option>
-                                @foreach($operatorsList as $op)
-                                    <option value="{{ $op->id }}">{{ $op->name }}</option>
-                                @endforeach
-                            </select>
+                            <x-searchable-select
+                                wire:model="received_by_user_id"
+                                :options="$operatorSelectOptions ?? $operatorsList"
+                                :dark="true"
+                                placeholder="-- Seleccione Operador Entrante (Relevo) --"
+                                searchPlaceholder="Digite nombre del operador entrante..."
+                            />
                         </div>
 
                         <div class="flex gap-2">

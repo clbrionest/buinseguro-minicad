@@ -140,12 +140,12 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold uppercase text-gray-600 mb-1">Sector</label>
-                                    <select wire:model="sector_id" class="w-full rounded-md border-gray-300 text-sm">
-                                        <option value="">Seleccionar...</option>
-                                        @foreach($sectors as $sec)
-                                            <option value="{{ $sec->id }}">{{ $sec->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <x-searchable-select
+                                        wire:model="sector_id"
+                                        :options="$sectors"
+                                        placeholder="Seleccionar sector..."
+                                        searchPlaceholder="Digite sector..."
+                                    />
                                 </div>
                             </div>
 
@@ -198,12 +198,12 @@
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold uppercase text-blue-700 mb-1">🚗 Móvil que Asistirá</label>
-                                    <select wire:model="device_id" class="w-full rounded-md border-blue-300 bg-blue-50 text-sm font-semibold">
-                                        <option value="">En espera de móvil</option>
-                                        @foreach($devices as $dev)
-                                            <option value="{{ $dev->id }}">{{ $dev->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <x-searchable-select
+                                        wire:model="device_id"
+                                        :options="$devices"
+                                        placeholder="En espera de móvil"
+                                        searchPlaceholder="Digite móvil..."
+                                    />
                                 </div>
                             </div>
 

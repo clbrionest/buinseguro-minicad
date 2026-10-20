@@ -228,16 +228,23 @@
                 </h3>
                 <p class="text-xs text-amber-800 mb-3">Seleccione un móvil disponible para despachar a terreno:</p>
                 
+                @php
+                    $dispatchDeviceOptions = $devices->map(fn($d) => [
+                        'value' => $d->id,
+                        'label' => $d->name,
+                        'meta'  => $d->effective_status . ($d->active_procedures_count > 0 ? ' · ' . $d->active_procedures_count . ' caso(s)' : ''),
+                    ])->values()->toArray();
+                @endphp
                 <div class="flex flex-col sm:flex-row gap-2">
-                    <select wire:model="new_device_id" class="flex-1 rounded-lg border-amber-300 shadow-sm text-sm font-semibold focus:border-amber-500 focus:ring-amber-500">
-                        <option value="">Seleccionar móvil...</option>
-                        @foreach($devices as $device)
-                            <option value="{{ $device->id }}">
-                                {{ $device->name }} — [{{ $device->effective_status }}{{ $device->active_procedures_count > 0 ? ' · ' . $device->active_procedures_count . ' caso(s)' : '' }}]
-                            </option>
-                        @endforeach
-                    </select>
-                    <button wire:click="assignDevice" class="bg-amber-600 hover:bg-amber-700 text-white font-black py-2 px-4 rounded-lg shadow text-xs transition">
+                    <div class="flex-1">
+                        <x-searchable-select
+                            wire:model="new_device_id"
+                            :options="$dispatchDeviceOptions"
+                            placeholder="Seleccionar móvil para despachar..."
+                            searchPlaceholder="Buscar móvil (ej: Móvil 15, Moto, Patrulla)..."
+                        />
+                    </div>
+                    <button wire:click="assignDevice" class="bg-amber-600 hover:bg-amber-700 text-white font-black py-2 px-4 rounded-lg shadow text-xs transition shrink-0">
                         Despachar
                     </button>
                 </div>
@@ -390,11 +397,14 @@
                             <label class="block text-xs font-bold uppercase text-slate-700 mb-1">
                                 Categorización Operativa / Confirmada en Terreno
                             </label>
-                            <select wire:model.live="operational_procedure_type_id" class="w-full rounded-lg border-slate-300 text-sm font-bold text-indigo-900 focus:border-indigo-500" @disabled($procedure->status === 'Cerrado')>
-                                @foreach($procedureTypes as $pt)
-                                    <option value="{{ $pt->id }}">{{ $pt->name }}</option>
-                                @endforeach
-                            </select>
+                            <x-searchable-select
+                                wire:model.live="operational_procedure_type_id"
+                                :options="$procedureTypes"
+                                :allowClear="false"
+                                :disabled="$procedure->status === 'Cerrado'"
+                                placeholder="Seleccione o digite procedimiento..."
+                                searchPlaceholder="Digite parte del procedimiento para filtrar..."
+                            />
                         </div>
                         <div class="flex items-end">
                             <p class="text-xs text-slate-500 leading-relaxed">
@@ -472,25 +482,25 @@
                 <form wire:submit.prevent="saveLog">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                         <div>
-                            <label class="block text-xs font-bold uppercase text-slate-600">Tipo de Acción</label>
-                            <select wire:model="action_type" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm text-sm font-semibold">
+                            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Tipo de Acción</label>
+                            <select wire:model="action_type" class="w-full rounded-lg border-slate-300 shadow-sm text-sm font-semibold">
                                 @foreach($logActions as $actOption)
                                     <option value="{{ $actOption }}">{{ $actOption }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase text-slate-600">Resolución / Derivación Rápida</label>
-                            <select wire:change="applyResolution($event.target.value)" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm text-sm font-semibold text-indigo-800">
-                                <option value="">-- Seleccionar resolución (opcional) --</option>
-                                @foreach($resolutions ?? [] as $resOption)
-                                    <option value="{{ $resOption }}">{{ $resOption }}</option>
-                                @endforeach
-                            </select>
+                            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Resolución / Derivación Rápida</label>
+                            <x-searchable-select
+                                wireAction="applyResolution"
+                                :options="$resolutions ?? []"
+                                placeholder="-- Buscar resolución / derivación --"
+                                searchPlaceholder="Digite resolución (ej: Carabineros, Enel, infracción)..."
+                            />
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase text-slate-600">Estado Operativo del Caso</label>
-                            <select wire:model="status" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm text-sm font-black text-blue-700">
+                            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Estado Operativo del Caso</label>
+                            <select wire:model="status" class="w-full rounded-lg border-slate-300 shadow-sm text-sm font-black text-blue-700">
                                 <option value="Pendiente">Pendiente</option>
                                 <option value="En Camino">En Camino</option>
                                 <option value="En el Lugar">En el Lugar</option>

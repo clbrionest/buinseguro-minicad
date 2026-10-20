@@ -38,24 +38,24 @@
             
             <form wire:submit.prevent="savePatrol">
                 <div class="mb-3">
-                    <label class="block text-sm font-medium text-gray-700">Vehículo / Móvil</label>
-                    <select wire:model="device_id" class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-50">
-                        <option value="">Seleccione el móvil...</option>
-                        @foreach($devices as $device)
-                            <option value="{{ $device->id }}">{{ $device->name }}</option>
-                        @endforeach
-                    </select>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Vehículo / Móvil</label>
+                    <x-searchable-select
+                        wire:model="device_id"
+                        :options="$devices"
+                        placeholder="Seleccione o busque el móvil..."
+                        searchPlaceholder="Digite móvil (ej: Móvil 15, Moto, Camioneta)..."
+                    />
                     @error('device_id') <span class="text-red-600 text-xs font-semibold">{{ $message }}</span> @enderror
                 </div>
                 
                 <div class="mb-3">
-                    <label class="block text-sm font-medium text-gray-700">Sector (Opcional)</label>
-                    <select wire:model="sector_id" class="mt-1 w-full rounded-md border-gray-300 shadow-sm bg-gray-50">
-                        <option value="">Asignar a un sector...</option>
-                        @foreach($sectors as $sector)
-                            <option value="{{ $sector->id }}">{{ $sector->name }}</option>
-                        @endforeach
-                    </select>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sector (Opcional)</label>
+                    <x-searchable-select
+                        wire:model="sector_id"
+                        :options="$sectors"
+                        placeholder="Asignar a un sector..."
+                        searchPlaceholder="Digite sector (ej: Maipo, Viluco, Centro)..."
+                    />
                     @error('sector_id') <span class="text-red-600 text-xs font-semibold">{{ $message }}</span> @enderror
                 </div>
 
@@ -71,14 +71,14 @@
                     </div>
                     
                     @foreach($crewMembers as $index => $member)
-                        <div class="flex gap-2 mb-2 items-start border-b pb-2 border-gray-200 last:border-0 last:pb-0">
+                        <div wire:key="patrol-crew-{{ $index }}" class="flex gap-2 mb-2 items-start border-b pb-2 border-gray-200 last:border-0 last:pb-0">
                             <div class="flex-1 space-y-2">
-                                <select wire:model="crewMembers.{{ $index }}.user_id" class="w-full text-sm rounded border-gray-300 shadow-sm">
-                                    <option value="">Seleccionar Funcionario...</option>
-                                    @foreach($users as $user)
-                                        <option value="{{ $user->id }}">{{ $user->name }}</option>
-                                    @endforeach
-                                </select>
+                                <x-searchable-select
+                                    wire:model="crewMembers.{{ $index }}.user_id"
+                                    :options="$users"
+                                    placeholder="Buscar Inspector / Funcionario..."
+                                    searchPlaceholder="Digite nombre del inspector..."
+                                />
                                 @error("crewMembers.{$index}.user_id") <span class="text-red-600 text-xs block">{{ $message }}</span> @enderror
                                 <div class="flex gap-2">
                                     <select wire:model="crewMembers.{{ $index }}.role" class="w-1/2 text-sm rounded border-gray-300 shadow-sm">
