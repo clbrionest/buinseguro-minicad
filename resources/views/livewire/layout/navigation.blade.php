@@ -36,12 +36,12 @@ new class extends Component
         <div class="flex items-center justify-between h-14 gap-2">
             <!-- Left Side: Brand + Main Navigation & Grouped Dropdowns -->
             <div class="flex items-center gap-1.5 min-w-0">
-                <!-- Logo / Brand CAD (#2C2E83 Cobalt + #94C11E Lime) -->
+                <!-- Logo / Brand CAD (Escudo Institucional + #94C11E Lime) -->
                 <div class="shrink-0 flex items-center pr-3 mr-1 border-r border-white/15">
                     <a href="{{ route('dashboard') }}" wire:navigate class="flex items-center gap-2.5 group">
-                        <span class="bg-brand-lime group-hover:bg-brand-lime-mid text-brand-black font-black w-8 h-8 rounded-lg flex items-center justify-center text-sm shadow-xs transition">
-                            <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-                        </span>
+                        <div class="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center shadow-xs group-hover:scale-105 transition shrink-0 border border-white/20">
+                            <img src="{{ asset('escudo.svg') }}" alt="Escudo Buin Seguro" class="h-full w-auto object-contain">
+                        </div>
                         <div class="leading-tight">
                             <span class="font-black text-sm tracking-wider text-brand-white block">BUIN SEGURO</span>
                             <span class="text-[10px] text-brand-lime-light uppercase font-bold block">Central CAD</span>

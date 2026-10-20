@@ -44,18 +44,20 @@ new #[Layout('layouts.guest')] class extends Component
             setInterval(update, 1000);
         }
     }">
-    <!-- Top Header & Live Clock -->
-    <div class="flex items-center justify-between border-b border-ui-border pb-4 mb-6">
-        <div>
-            <h2 class="text-lg font-extrabold text-ui-fg tracking-tight flex items-center gap-2">
-                <i class="fa-solid fa-user-shield text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i>
+    <!-- Top Header with Institutional Shield Logo & Live Clock -->
+    <div class="flex items-center gap-3 border-b border-ui-border pb-4 mb-6">
+        <div class="w-12 h-12 rounded-xl bg-white p-1.5 flex items-center justify-center shadow-xs border border-ui-border shrink-0">
+            <img src="{{ asset('escudo.svg') }}" alt="Escudo I. Municipalidad de Buin" class="h-full w-auto object-contain">
+        </div>
+        <div class="min-w-0 flex-1">
+            <h2 class="text-base sm:text-lg font-extrabold text-ui-fg tracking-tight flex items-center gap-1.5">
                 <span>Ingreso a Consola CAD</span>
             </h2>
-            <p class="text-xs text-ui-muted mt-0.5">Identifíquese con sus credenciales institucionales</p>
+            <p class="text-xs text-ui-muted truncate">Dirección de Seguridad Pública • Buin</p>
         </div>
-        <div class="bg-ui-subtle border border-ui-border px-3 py-1.5 rounded-lg text-right">
-            <span x-text="clock" class="font-mono cad-tabular text-sm font-black text-brand-cobalt dark:text-brand-lime-mid block leading-none"></span>
-            <span x-text="dateStr" class="text-[10px] text-ui-muted uppercase font-bold block mt-0.5"></span>
+        <div class="bg-ui-subtle border border-ui-border px-2.5 py-1 rounded-lg text-right shrink-0">
+            <span x-text="clock" class="font-mono cad-tabular text-xs sm:text-sm font-black text-brand-cobalt dark:text-brand-lime-mid block leading-none"></span>
+            <span x-text="dateStr" class="text-[9px] sm:text-[10px] text-ui-muted uppercase font-bold block mt-0.5"></span>
         </div>
     </div>
 

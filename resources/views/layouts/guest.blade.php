@@ -43,8 +43,8 @@
                 <!-- Header Brand -->
                 <div class="relative z-10 flex items-center justify-between">
                     <div class="flex items-center gap-3.5">
-                        <div class="w-12 h-12 rounded-xl bg-brand-lime flex items-center justify-center shadow-md border border-white/20">
-                            <i class="fa-solid fa-shield-halved text-brand-black text-2xl" aria-hidden="true"></i>
+                        <div class="w-14 h-14 rounded-xl bg-white p-1.5 flex items-center justify-center shadow-md border border-white/30 shrink-0">
+                            <img src="{{ asset('escudo.svg') }}" alt="Escudo I. Municipalidad de Buin" class="h-full w-auto object-contain">
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
@@ -105,8 +105,8 @@
                 <!-- Top Bar with Mobile Brand & Theme Switcher -->
                 <div class="flex items-center justify-between w-full max-w-md mx-auto">
                     <div class="lg:hidden flex items-center gap-2.5">
-                        <div class="w-9 h-9 rounded-lg bg-brand-cobalt flex items-center justify-center shadow-xs">
-                            <i class="fa-solid fa-shield-halved text-brand-lime text-lg" aria-hidden="true"></i>
+                        <div class="w-10 h-10 rounded-lg bg-white p-1 flex items-center justify-center shadow-xs border border-ui-border shrink-0">
+                            <img src="{{ asset('escudo.svg') }}" alt="Escudo I. Municipalidad de Buin" class="h-full w-auto object-contain">
                         </div>
                         <div>
                             <span class="font-black text-sm tracking-wider text-ui-fg block leading-none">BUIN SEGURO CAD</span>
