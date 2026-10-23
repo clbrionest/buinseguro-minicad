@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "laravel-boost": {
+      "command": "docker",
+      "args": [
+        "compose",
+        "--project-directory",
+        "/home/cbriones/proyectos/buinseguro-minicad",
+        "exec",
+        "-T",
+        "app",
+        "php",
+        "artisan",
+        "boost:mcp"
+      ]
+    }
+  }
+}
