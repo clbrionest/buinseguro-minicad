@@ -1,0 +1,69 @@
+
+name: buinseguro-minicad
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+
+    working_dir: /var/www/html
+
+    extra_hosts:
+     - "host.docker.internal:host-gateway"
+
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+
+    volumes:
+      - ./:/var/www/html
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: buinseguro_dev
+      DB_USERNAME: buinseguro
+      DB_PASSWORD: "${DB_PASSWORD:?Configurar DB_PASSWORD en .env}"
+    
+      
+
+    command: >
+      php artisan serve
+      --host=0.0.0.0
+      --port=8000
+
+  mysql:
+    image: mysql:8.4
+
+    restart: unless-stopped
+
+    environment:
+      MYSQL_DATABASE: buinseguro_dev
+      MYSQL_USER: buinseguro
+      MYSQL_PASSWORD: "${DB_PASSWORD:?Configurar DB_PASSWORD en .env}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:?Configurar DB_ROOT_PASSWORD en .env}"
+
+    ports:
+      - "127.0.0.1:3307:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - MYSQL_PWD="$${MYSQL_PASSWORD}" mysqladmin ping -h 127.0.0.1 -u "$${MYSQL_USER}" --silent
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  mysql_data:
