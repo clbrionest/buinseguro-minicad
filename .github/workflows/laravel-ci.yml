@@ -59,6 +59,23 @@ jobs:
           mkdir -p database
           touch database/database.sqlite
 
+      # Preparar recursos frontend para las vistas Blade
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Vite assets
+        run: npm run build
+
+      - name: Verify Vite manifest
+        run: test -f public/build/manifest.json
+
+      # Pint temporalmente no bloqueante
       - name: Check PHP formatting
         continue-on-error: true
         run: vendor/bin/pint --test
@@ -73,26 +90,3 @@ jobs:
           QUEUE_CONNECTION: sync
           MAIL_MAILER: log
         run: php artisan test
-
-  frontend:
-    name: Frontend / Node.js 24
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Verify Vite output
-        run: test -f public/build/manifest.json
