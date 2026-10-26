@@ -68,6 +68,7 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+        
 
       - name: Build Vite assets
         run: npm run build
