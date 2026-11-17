@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Storage;
-use App\Models\Call;
 use App\Models\AuditLog;
+use App\Models\Call;
+use Illuminate\Support\Facades\Storage;
 
 class CallAudioController extends Controller
 {
@@ -12,7 +12,7 @@ class CallAudioController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             abort(401);
         }
 
@@ -21,9 +21,9 @@ class CallAudioController extends Controller
         // - Operador solo puede escuchar grabaciones de su propio anexo telefónico.
         // - Otros roles (ej. Inspector) no tienen acceso a grabaciones PBX.
         $canListen = $user->hasAnyRole(['Administrador', 'Supervisor'])
-            || ($user->hasRole('Operador') && !empty($user->extension) && (string) $call->extension === (string) $user->extension);
+            || ($user->hasRole('Operador') && ! empty($user->extension) && (string) $call->extension === (string) $user->extension);
 
-        if (!$canListen) {
+        if (! $canListen) {
             AuditLog::record(
                 'security.denied',
                 'Telefonía PBX',
@@ -39,8 +39,14 @@ class CallAudioController extends Controller
             abort(404, 'Ruta de grabación inválida o inexistente.');
         }
 
-        // Verificamos si existe el archivo en el disco de grabaciones
-        if (!Storage::disk('asterisk_recordings')->exists($path)) {
+        // Normalizamos la ruta removiendo prefijos absolutos de monitor si estuvieran presentes
+        $normalizedPath = preg_replace('#^(/var/spool/asterisk)?/monitor/#', '', $path);
+        $normalizedPath = ltrim((string) $normalizedPath, '/');
+
+        $disk = Storage::disk('asterisk_recordings');
+        $resolvedPath = $disk->exists($normalizedPath) ? $normalizedPath : ($disk->exists($path) ? $path : null);
+
+        if (! $resolvedPath) {
             abort(404, 'Grabación no encontrada en el servidor PBX.');
         }
 
@@ -52,6 +58,6 @@ class CallAudioController extends Controller
         );
 
         // Retornamos el archivo como un Stream para que el navegador lo reproduzca
-        return Storage::disk('asterisk_recordings')->response($path);
+        return $disk->response($resolvedPath);
     }
 }

@@ -61,14 +61,14 @@ return [
         ],
 
         'asterisk_recordings' => [
-        'driver' => 'sftp',
-        'host' => env('ASTERISK_HOST'),
-        'username' => env('ASTERISK_USERNAME'),
-        'password' => env('ASTERISK_PASSWORD'), // O 'privateKey' => 'ruta/a/la/llave'
-        'port' => (int) env('ASTERISK_PORT', 22),
-        'root' => '/var/spool/asterisk/monitor',
-        'timeout' => 30,
-    ],
+            'driver' => 'sftp',
+            'host' => env('ASTERISK_HOST'),
+            'username' => env('ASTERISK_USERNAME'),
+            'password' => env('ASTERISK_PASSWORD'), // O 'privateKey' => 'ruta/a/la/llave'
+            'port' => (int) env('ASTERISK_PORT', 22),
+            'root' => env('ASTERISK_RECORDINGS_ROOT', env('ASTERISK_ROOT', '/monitor')),
+            'timeout' => 30,
+        ],
 
     ],
 
