@@ -2,56 +2,86 @@
 
 namespace App\Livewire;
 
-use Livewire\Component;
-use App\Models\Sector;
-use App\Models\ProcedureType;
+use App\Models\AuditLog;
+use App\Models\Call;
 use App\Models\Device;
+use App\Models\Landmark;
 use App\Models\Origin;
+use App\Models\PatrolAssignment;
 use App\Models\Procedure;
 use App\Models\ProcedureLog;
-use App\Models\Landmark;
+use App\Models\ProcedureType;
+use App\Models\Sector;
+use App\Models\SystemCatalogItem;
 use Illuminate\Support\Facades\Auth;
-use Livewire\Attributes\On; // <-- ¡NUEVA IMPORTACIÓN VITAL PARA ESCUCHAR EVENTOS!
+use Livewire\Attributes\On;
+use Livewire\Component;
+
+ // <-- ¡NUEVA IMPORTACIÓN VITAL PARA ESCUCHAR EVENTOS!
 
 class CreateProcedure extends Component
 {
+    public $showButton = true;
+
     public $isOpen = false; // Controla si el modal está visible
 
     // Variables del formulario
     public $origin_id = '';
+
     public $sector_id = '';
+
     public $procedure_type_id = '';
+
     public $device_id = '';
-    
+
     // NUEVAS variables geográficas
     public $landmark_id = '';
+
     public $formatted_address = '';
-    public $exact_address = ''; 
+
+    public $exact_address = '';
+
     public $address_reference = '';
+
     public $latitude = '';
+
     public $longitude = '';
-    public $is_preventive = false; 
+
+    public $is_preventive = false;
 
     public $caller_name = '';
+
     public $caller_id_document = '';
+
     public $caller_phone = ''; // <-- Aquí aterrizará el número de Asterisk
+
     public $initial_description = '';
 
     // Metadatos dinámicos según Tipo de Procedimiento
     public $currentMetaFields = [];
+
     public $metaValues = [];
 
-    public $sectors, $procedureTypes, $devices, $origins, $landmarks; 
+    public $sectors;
+
+    public $procedureTypes;
+
+    public $devices;
+
+    public $origins;
+
+    public $landmarks;
+
     public $call_id = null; // <-- Para almacenar el ID de la llamada entrante
 
     // Historial previo del número telefónico ingresado
     public $callerHistory = [];
+
     public $callerStats = [
         'total_cases' => 0,
         'total_calls' => 0,
         'pranks' => 0,
     ];
-
 
     public function mount()
     {
@@ -91,11 +121,11 @@ class CreateProcedure extends Component
     {
         if ($value) {
             $landmark = Landmark::find($value);
-            $this->exact_address = $landmark->name . ' (' . $landmark->address . ')';
+            $this->exact_address = $landmark->name.' ('.$landmark->address.')';
             $this->formatted_address = $landmark->address;
             $this->latitude = $landmark->latitude;
             $this->longitude = $landmark->longitude;
-            
+
             $this->dispatch('location-updated', lat: $this->latitude, lng: $this->longitude);
         } else {
             $this->reset(['exact_address', 'formatted_address', 'latitude', 'longitude']);
@@ -114,6 +144,7 @@ class CreateProcedure extends Component
         if (strlen($phone) < 4) {
             $this->callerHistory = [];
             $this->callerStats = ['total_cases' => 0, 'total_calls' => 0, 'pranks' => 0];
+
             return;
         }
 
@@ -125,22 +156,22 @@ class CreateProcedure extends Component
 
         $this->callerStats = [
             'total_cases' => Procedure::where('caller_phone', $phone)->count(),
-            'total_calls' => \App\Models\Call::where('caller_id', $phone)->count(),
-            'pranks' => \App\Models\Call::where('caller_id', $phone)->where('classification', 'Pitanza / Broma')->count(),
+            'total_calls' => Call::where('caller_id', $phone)->count(),
+            'pranks' => Call::where('caller_id', $phone)->where('classification', 'Pitanza / Broma')->count(),
         ];
 
         // Autocompletar nombre y RUT si ya existen en un caso previo y están en blanco
-        $lastWithCaller = $recentCases->first(fn($c) => !empty($c->caller_name));
+        $lastWithCaller = $recentCases->first(fn ($c) => ! empty($c->caller_name));
         if ($lastWithCaller) {
             if (empty($this->caller_name)) {
                 $this->caller_name = $lastWithCaller->caller_name;
             }
-            if (empty($this->caller_id_document) && !empty($lastWithCaller->caller_id_document)) {
+            if (empty($this->caller_id_document) && ! empty($lastWithCaller->caller_id_document)) {
                 $this->caller_id_document = $lastWithCaller->caller_id_document;
             }
         }
 
-        $this->callerHistory = $recentCases->map(fn($p) => [
+        $this->callerHistory = $recentCases->map(fn ($p) => [
             'id' => $p->id,
             'date' => $p->created_at->format('d/m/Y H:i'),
             'type' => $p->procedureType->name ?? 'N/A',
@@ -153,28 +184,46 @@ class CreateProcedure extends Component
     // --- MAGIA APLICADA AQUÍ ---
     // Le decimos a Livewire que cuando alguien grite "openModal" (como el popup), ejecute esto.
     #[On('openModal')]
-    public function openModal($caller_id = null, $call_id = null) // Recibimos el segundo parámetro
-    { 
+    public function openModal($caller_id = null, $call_id = null)
+    {
         $this->resetForm();
         $this->resetValidation();
+
+        $user = Auth::user();
+        if ($user) {
+            if ($user->hasAnyRole(['Administrador', 'Supervisor'])) {
+                $this->sectors = Sector::orderBy('name')->get();
+            } else {
+                $this->sectors = $user->sectors()->orderBy('name')->get();
+            }
+        }
+        $this->procedureTypes = ProcedureType::orderBy('name')->get();
+        $this->devices = Device::withCount('activeProcedures')->orderBy('name')->get();
+        $this->origins = Origin::orderBy('name')->get();
+        $this->landmarks = Landmark::orderBy('name')->get();
 
         if ($caller_id) {
             $this->caller_phone = $caller_id;
             $this->loadCallerHistory($caller_id);
         }
-        
+
         if ($call_id) {
-            $this->call_id = $call_id; // <--- GUARDAMOS EL ID EN LA MEMORIA DEL COMPONENTE
+            $this->call_id = $call_id;
+            if (empty($this->origin_id) && $this->origins) {
+                $phoneOrigin = $this->origins->first(fn ($o) => in_array(mb_strtolower($o->name), ['1426', 'central telefónica', 'central telefonica', 'telefónico', 'telefonico']));
+                if ($phoneOrigin) {
+                    $this->origin_id = $phoneOrigin->id;
+                }
+            }
         }
 
-        $this->procedureTypes = ProcedureType::orderBy('name')->get();
-        $this->devices = Device::withCount('activeProcedures')->orderBy('name')->get();
-        $this->isOpen = true; 
+        $this->isOpen = true;
     }
 
-    public function closeModal() { 
-        $this->isOpen = false; 
-        $this->resetForm(); 
+    public function closeModal()
+    {
+        $this->isOpen = false;
+        $this->resetForm();
     }
 
     public function resetForm()
@@ -209,14 +258,14 @@ class CreateProcedure extends Component
             'origin_id' => 'required',
             'sector_id' => 'required',
             'procedure_type_id' => 'required',
-            'exact_address' => 'required', 
+            'exact_address' => 'required',
         ]);
 
         $user = Auth::user();
-        if ($user && !$user->hasAnyRole(['Administrador', 'Supervisor'])) {
-            $allowedSectorIds = $user->sectors()->pluck('sectors.id')->map(fn($id) => (int) $id)->toArray();
-            if (!in_array((int) $this->sector_id, $allowedSectorIds, true)) {
-                \App\Models\AuditLog::record(
+        if ($user && ! $user->hasAnyRole(['Administrador', 'Supervisor'])) {
+            $allowedSectorIds = $user->sectors()->pluck('sectors.id')->map(fn ($id) => (int) $id)->toArray();
+            if (! in_array((int) $this->sector_id, $allowedSectorIds, true)) {
+                AuditLog::record(
                     'security.denied',
                     'Procedimientos',
                     "Intento de crear procedimiento en sector no autorizado (ID: {$this->sector_id})."
@@ -231,11 +280,11 @@ class CreateProcedure extends Component
 
         // BÚSQUEDA INTELIGENTE DE PATRULLA
         if ($this->device_id) {
-            $activeAssignment = \App\Models\PatrolAssignment::where('device_id', $this->device_id)
+            $activeAssignment = PatrolAssignment::where('device_id', $this->device_id)
                 ->where('is_active', true)
                 ->latest()
                 ->first();
-                
+
             if ($activeAssignment) {
                 $activeAssignmentId = $activeAssignment->id;
             }
@@ -243,7 +292,7 @@ class CreateProcedure extends Component
 
         // Filtrar metadatos no vacíos
         $cleanMeta = collect($this->metaValues)
-            ->filter(fn($val) => !is_null($val) && trim((string) $val) !== '')
+            ->filter(fn ($val) => ! is_null($val) && trim((string) $val) !== '')
             ->toArray();
 
         $procedure = Procedure::create([
@@ -258,7 +307,7 @@ class CreateProcedure extends Component
             'formatted_address' => $this->formatted_address,
             'exact_address' => $this->exact_address,
             'address_reference' => $this->address_reference,
-            'metadata' => !empty($cleanMeta) ? $cleanMeta : null,
+            'metadata' => ! empty($cleanMeta) ? $cleanMeta : null,
             'latitude' => $this->latitude ?: null,
             'longitude' => $this->longitude ?: null,
             'is_preventive' => $this->is_preventive,
@@ -270,12 +319,12 @@ class CreateProcedure extends Component
             'call_id' => $this->call_id,
         ]);
 
-        $logDescription = 'Procedimiento ingresado. ' . ($this->device_id ? 'Móvil despachado inmediatamente.' : 'A la espera de asignación de móvil.');
-        if (!empty(trim($this->initial_description))) {
-            $logDescription .= ' Relato inicial: "' . trim($this->initial_description) . '".';
+        $logDescription = 'Procedimiento ingresado. '.($this->device_id ? 'Móvil despachado inmediatamente.' : 'A la espera de asignación de móvil.');
+        if (! empty(trim($this->initial_description))) {
+            $logDescription .= ' Relato inicial: "'.trim($this->initial_description).'".';
         }
-        if (!empty($cleanMeta)) {
-            $metaSummary = collect($procedure->formatted_metadata)->map(fn($m) => "{$m['label']}: {$m['value']}")->join(' | ');
+        if (! empty($cleanMeta)) {
+            $metaSummary = collect($procedure->formatted_metadata)->map(fn ($m) => "{$m['label']}: {$m['value']}")->join(' | ');
             $logDescription .= " [Metadatos iniciales: {$metaSummary}]";
         }
 
@@ -286,7 +335,7 @@ class CreateProcedure extends Component
             'description' => $logDescription,
         ]);
 
-        \App\Models\AuditLog::record(
+        AuditLog::record(
             'procedure.created',
             'Procedimientos',
             "Ingreso de Procedimiento Folio #{$procedure->id} en {$procedure->exact_address} (Estado: {$procedure->status}).",
@@ -301,17 +350,18 @@ class CreateProcedure extends Component
 
         // Y muy importante: actualizamos la tabla de llamadas para que ella también sepa su caso
         if ($this->call_id) {
-            \App\Models\Call::where('id', $this->call_id)->update(['procedure_id' => $procedure->id]);
+            Call::where('id', $this->call_id)->update(['procedure_id' => $procedure->id]);
         }
 
         $this->closeModal();
-        $this->dispatch('procedure-created'); 
+        $this->dispatch('procedure-created');
+        session()->flash('message', "Procedimiento Folio #{$procedure->id} ingresado exitosamente.");
     }
 
     public function render()
     {
         return view('livewire.create-procedure', [
-            'housingComplexes' => \App\Models\SystemCatalogItem::namesFor('housing_complexes'),
+            'housingComplexes' => SystemCatalogItem::namesFor('housing_complexes'),
         ]);
     }
 }

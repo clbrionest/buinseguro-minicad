@@ -1,10 +1,12 @@
 <div>
-    <button type="button"
-            wire:click="openModal"
-            class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black font-extrabold py-2 px-4 rounded-lg shadow-xs text-xs inline-flex items-center gap-1.5 transition min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-focus">
-        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-        <span>Crear Procedimiento</span>
-    </button>
+    @if($showButton)
+        <button type="button"
+                wire:click="openModal"
+                class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black font-extrabold py-2 px-4 rounded-lg shadow-xs text-xs inline-flex items-center gap-1.5 transition min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-focus">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>Crear Procedimiento</span>
+        </button>
+    @endif
 
     @if($isOpen)
         <div class="fixed inset-0 bg-black/70 backdrop-blur-xs overflow-y-auto h-full w-full flex justify-center items-start pt-6 pb-10 z-50" role="dialog" aria-modal="true" aria-labelledby="modal-new-proc-title">
