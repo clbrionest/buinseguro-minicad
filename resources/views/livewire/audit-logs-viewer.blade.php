@@ -11,7 +11,7 @@
                     Registro de Auditoría y Eventos de Seguridad CAD
                 </h1>
                 <p class="text-xs text-slate-400 mt-1">
-                    Bitácora inmutable de accesos, creaciones y cambios de estado de procedimientos, aperturas/cierres de guardia, reproducción de audios PBX e intentos de acceso denegados.
+                    Bitácora inmutable de accesos, creaciones y cambios de estado de procedimientos, aperturas/cierres de guardia, reproducción de grabaciones de llamadas e intentos de acceso denegados.
                 </p>
             </div>
 

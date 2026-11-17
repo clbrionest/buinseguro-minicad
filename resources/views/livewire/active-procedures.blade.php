@@ -95,7 +95,7 @@
                     <span class="w-2 h-2 rounded-full bg-[#16835D]"></span> EN LÍNEA · 10s
                 </span>
             </h1>
-            <p class="text-xs text-ui-muted mt-1">Monitoreo operativo de procedimientos activos, disponibilidad de flota QAP, tiempos SLA y antecedentes en terreno.</p>
+            <p class="text-xs text-ui-muted mt-1">Monitoreo operativo de procedimientos activos, disponibilidad de flota, tiempos SLA y antecedentes en terreno.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <x-cad.button variant="secondary" :href="route('field.inspector')">
@@ -167,14 +167,14 @@
         />
     </div>
 
-    {{-- MONITOR DE ESTADO DE FLOTA (QAP) --}}
+    {{-- MONITOR DE ESTADO DE FLOTA --}}
     @if(isset($fleetDevices) && $fleetDevices->count() > 0)
         <div class="rounded-lg border border-ui-border bg-ui-card p-4 text-ui-fg shadow-xs" x-data="{ openFleet: true }">
             <div class="flex flex-wrap justify-between items-center gap-2">
                 <div class="flex flex-wrap items-center gap-2.5">
                     <h2 class="text-xs font-extrabold uppercase text-ui-fg tracking-wider flex items-center gap-1.5">
                         <i class="fa-solid fa-car-on text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i>
-                        <span>Monitor de Recursos y Flota Operativa (QAP)</span>
+                        <span>Monitor de Recursos y Flota Operativa</span>
                     </h2>
                     <span class="text-xs bg-[#16835D]/15 text-[#11684A] dark:bg-[#16835D]/25 dark:text-[#6EE7B7] border border-[#16835D]/30 px-2.5 py-0.5 rounded-md font-bold font-mono cad-tabular">
                         <i class="fa-solid fa-circle-check mr-1 text-[10px]" aria-hidden="true"></i>{{ $fleetDevices->filter(fn($d) => $d->effective_status === 'Disponible (QAP)')->count() }} Disponibles
@@ -230,7 +230,7 @@
                                     class="text-[11px] py-1 px-2 rounded-md border-ui-border bg-ui-card text-ui-fg font-semibold w-full focus:border-ui-focus focus:ring-ui-focus">
                                 @foreach(['Disponible (QAP)', 'En Colación', 'Punto Fijo', 'En Mantención'] as $st)
                                     <option value="{{ $st }}" @selected(($dev->operational_status ?: 'Disponible (QAP)') === $st)>
-                                        Estado: {{ $st }}
+                                        Estado: {{ str_replace(' (QAP)', '', $st) }}
                                     </option>
                                 @endforeach
                             </select>

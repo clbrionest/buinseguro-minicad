@@ -374,7 +374,7 @@
                             </div>
                             <div class="bg-slate-800/90 border border-slate-700 rounded-lg p-2.5 text-center">
                                 <span class="block text-xl font-black text-indigo-400">{{ $liveStats['total_calls'] ?? $liveStats['calls_total'] ?? 0 }}</span>
-                                <span class="text-[10px] uppercase font-bold text-slate-400">Llamadas PBX</span>
+                                <span class="text-[10px] uppercase font-bold text-slate-400">Llamadas Telefónicas</span>
                             </div>
                         </div>
                     @endif

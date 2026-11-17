@@ -16,10 +16,10 @@
         <div>
             <h2 class="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
                 <i class="fa-solid fa-phone-volume text-blue-600"></i>
-                Historial Telefónico (Integración PBX)
+                Historial Telefónico
             </h2>
             <p class="text-xs text-gray-500 mt-1">
-                Registro de llamados entrantes en central Asterisk, grabaciones de audio y vinculación con casos CAD.
+                Registro de llamados entrantes en central, grabaciones de audio y vinculación con casos CAD.
             </p>
         </div>
 
@@ -63,7 +63,7 @@
                         <th class="py-3 px-4 text-left font-black">Fecha / Hora</th>
                         <th class="py-3 px-4 text-left font-black">Número Origen</th>
                         <th class="py-3 px-3 text-center font-black">Anexo Receptor</th>
-                        <th class="py-3 px-3 text-center font-black">Estado PBX</th>
+                        <th class="py-3 px-3 text-center font-black">Estado Llamada</th>
                         <th class="py-3 px-4 text-center font-black">Grabación</th>
                         <th class="py-3 px-4 text-center font-black">Caso Asociado</th>
                         <th class="py-3 px-4 text-center font-black">Operaciones / Acciones</th>
@@ -215,7 +215,7 @@
                 <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-white/10">
                     <div>
                         <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400 block">
-                            TELEFONÍA PBX & TRAZABILIDAD
+                            TELEFONÍA & TRAZABILIDAD
                         </span>
                         <h3 class="text-base font-black flex items-center gap-2">
                             <i class="fa-solid fa-link text-indigo-400"></i>

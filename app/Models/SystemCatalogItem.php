@@ -55,7 +55,7 @@ class SystemCatalogItem extends Model
             'has_shift_meta' => false,
         ],
         'call_classifications' => [
-            'label' => 'Tipificaciones Llamadas PBX',
+            'label' => 'Tipificaciones de Llamadas',
             'description' => 'Motivos de clasificación para llamadas telefónicas que no generan procedimiento (Información, Pitanza, Derivación, etc.).',
             'has_shift_meta' => false,
         ],
@@ -65,8 +65,8 @@ class SystemCatalogItem extends Model
             'has_shift_meta' => false,
         ],
         'device_statuses' => [
-            'label' => 'Estados Operativos de Flota (QAP)',
-            'description' => 'Estados seleccionables para los móviles en sala y en terreno (Disponible QAP, En Colación, Punto Fijo, En Mantención).',
+            'label' => 'Estados Operativos de Flota',
+            'description' => 'Estados seleccionables para los móviles en sala y en terreno (Disponible, En Colación, Punto Fijo, En Mantención).',
             'has_shift_meta' => false,
         ],
         'event_types' => [
@@ -97,7 +97,7 @@ class SystemCatalogItem extends Model
     public static function namesFor(string $group, array $fallback = []): array
     {
         try {
-            if (!Schema::hasTable('system_catalog_items')) {
+            if (! Schema::hasTable('system_catalog_items')) {
                 return $fallback;
             }
 
@@ -108,7 +108,7 @@ class SystemCatalogItem extends Model
                 ->pluck('name')
                 ->toArray();
 
-            return !empty($names) ? $names : $fallback;
+            return ! empty($names) ? $names : $fallback;
         } catch (\Throwable $e) {
             return $fallback;
         }
@@ -120,7 +120,7 @@ class SystemCatalogItem extends Model
     public static function itemsFor(string $group)
     {
         try {
-            if (!Schema::hasTable('system_catalog_items')) {
+            if (! Schema::hasTable('system_catalog_items')) {
                 return collect();
             }
 
@@ -153,14 +153,14 @@ class SystemCatalogItem extends Model
     public static function roomEquipmentsMap(): array
     {
         $fallback = [
-            'central_pbx' => 'Central PBX',
+            'central_pbx' => 'Central Telefónica',
             'radio_vhf' => 'Radio VHF',
             'camaras_cctv' => 'Cámaras CCTV',
             'gps_flota' => 'GPS Flota',
         ];
 
         try {
-            if (!Schema::hasTable('system_catalog_items')) {
+            if (! Schema::hasTable('system_catalog_items')) {
                 return $fallback;
             }
 
@@ -176,7 +176,7 @@ class SystemCatalogItem extends Model
 
             $map = [];
             foreach ($items as $item) {
-                $key = !empty($item->code) ? strtolower($item->code) : Str::slug($item->name, '_');
+                $key = ! empty($item->code) ? strtolower($item->code) : Str::slug($item->name, '_');
                 $map[$key] = $item->name;
             }
 
@@ -192,7 +192,7 @@ class SystemCatalogItem extends Model
     public static function resolveEquipmentLabel(string $key): string
     {
         $defaults = [
-            'central_pbx' => 'Central PBX',
+            'central_pbx' => 'Central Telefónica',
             'radio_vhf' => 'Radio VHF',
             'camaras_cctv' => 'Cámaras CCTV',
             'gps_flota' => 'GPS Flota',
@@ -206,7 +206,7 @@ class SystemCatalogItem extends Model
                     ->where('catalog_group', 'room_equipments')
                     ->where(function ($q) use ($key) {
                         $q->whereRaw('LOWER(code) = ?', [strtolower($key)])
-                          ->orWhereRaw('LOWER(name) = ?', [strtolower(str_replace('_', ' ', $key))]);
+                            ->orWhereRaw('LOWER(name) = ?', [strtolower(str_replace('_', ' ', $key))]);
                     })
                     ->first();
 

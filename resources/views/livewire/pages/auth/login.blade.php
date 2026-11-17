@@ -47,13 +47,13 @@ new #[Layout('layouts.guest')] class extends Component
     <!-- Top Header with Institutional Shield Logo & Live Clock -->
     <div class="flex items-center gap-3 border-b border-ui-border pb-4 mb-6">
         <div class="w-12 h-12 rounded-xl bg-white p-1.5 flex items-center justify-center shadow-xs border border-ui-border shrink-0">
-            <img src="{{ asset('escudo.svg') }}" alt="Escudo I. Municipalidad de Buin" class="h-full w-auto object-contain">
+            <img src="{{ asset('escudo.svg') }}" alt="Escudo Municipalidad de Buin" class="h-full w-auto object-contain">
         </div>
         <div class="min-w-0 flex-1">
             <h2 class="text-base sm:text-lg font-extrabold text-ui-fg tracking-tight flex items-center gap-1.5">
-                <span>Ingreso a Consola CAD</span>
+                <span>MiniCAD</span>
             </h2>
-            <p class="text-xs text-ui-muted truncate">Dirección de Seguridad Pública • Buin</p>
+            <p class="text-xs text-ui-muted truncate">Dirección de Seguridad Pública • Municipalidad de Buin</p>
         </div>
         <div class="bg-ui-subtle border border-ui-border px-2.5 py-1 rounded-lg text-right shrink-0">
             <span x-text="clock" class="font-mono cad-tabular text-xs sm:text-sm font-black text-brand-cobalt dark:text-brand-lime-mid block leading-none"></span>
@@ -120,7 +120,7 @@ new #[Layout('layouts.guest')] class extends Component
             <button type="submit"
                     wire:loading.attr="disabled"
                     class="w-full bg-brand-cobalt hover:bg-brand-cobalt-deep text-brand-white dark:bg-brand-lime dark:hover:bg-brand-lime-mid dark:text-brand-black font-extrabold text-sm uppercase tracking-wider py-3 px-4 rounded-lg shadow-md flex items-center justify-center gap-2 transition disabled:opacity-50">
-                <span wire:loading.remove><i class="fa-solid fa-right-to-bracket mr-1" aria-hidden="true"></i> Iniciar Turno en Central</span>
+                <span wire:loading.remove><i class="fa-solid fa-right-to-bracket mr-1" aria-hidden="true"></i> Iniciar Turno en MiniCAD</span>
                 <span wire:loading><i class="fa-solid fa-circle-notch fa-spin mr-1" aria-hidden="true"></i> Autenticando...</span>
             </button>
         </div>
@@ -129,6 +129,6 @@ new #[Layout('layouts.guest')] class extends Component
     <!-- Bottom Info Banner -->
     <div class="mt-6 pt-4 border-t border-ui-border flex items-start gap-2.5 text-[11px] text-ui-muted">
         <i class="fa-solid fa-circle-info text-brand-cobalt dark:text-brand-lime mt-0.5" aria-hidden="true"></i>
-        <span>Al ingresar, recuerde verificar la recepción de su <strong>Turno de Sala</strong> y el estado de su anexo telefónico PBX.</span>
+        <span>Al ingresar, recuerde verificar la recepción de su <strong>Turno de Sala</strong> y el estado de los equipos de la Sala de Monitoreo</span>
     </div>
 </div>

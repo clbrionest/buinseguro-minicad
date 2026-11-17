@@ -1,11 +1,12 @@
 @props([
-    'status' => 'Disponible (QAP)',
+    'status' => 'Disponible',
     'activeCount' => 0,
 ])
 
 @php
-    $cfg = match($status) {
-        'Disponible (QAP)' => [
+    $displayStatus = str_replace(' (QAP)', '', (string) $status);
+    $cfg = match($displayStatus) {
+        'Disponible' => [
             'classes' => 'bg-[#16835D]/15 text-[#11684A] border-[#16835D]/35 dark:bg-[#16835D]/25 dark:text-[#6EE7B7] dark:border-[#16835D]/50',
             'icon'    => 'fa-solid fa-circle-check',
         ],
@@ -34,7 +35,7 @@
 
 <span {{ $attributes->merge(['class' => 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-bold whitespace-nowrap ' . $cfg['classes']]) }}>
     <i class="{{ $cfg['icon'] }} text-[10px]" aria-hidden="true"></i>
-    <span>{{ $status }}</span>
+    <span>{{ $displayStatus }}</span>
     @if($activeCount > 0)
         <span class="font-mono cad-tabular">({{ $activeCount }})</span>
     @endif

@@ -70,14 +70,14 @@
                         Plataforma Institucional de Monitoreo, Despacho y Gestión Operativa
                     </h1>
                     <p class="mt-4 text-brand-cobalt-light text-sm leading-relaxed">
-                        Sistema oficial para operadores telefónicos, central CCTV, supervisores de sala, inspectores en terreno y dirección ejecutiva. Integrado con telefonía IP Asterisk PBX, georreferenciación de flota QAP y control de niveles de servicio (SLA).
+                        Sistema oficial para operadores telefónicos, central CCTV, supervisores de sala, inspectores en terreno y dirección ejecutiva. Integrado con telefonía IP, georreferenciación de flota en vivo y control de niveles de servicio (SLA).
                     </p>
 
                     <!-- Feature Cards -->
                     <div class="grid grid-cols-3 gap-3 mt-8">
                         <div class="bg-black/20 border border-white/15 rounded-lg p-3.5">
                             <div class="text-brand-lime text-lg mb-1"><i class="fa-solid fa-headset" aria-hidden="true"></i></div>
-                            <div class="text-xs font-bold text-brand-white uppercase">Despacho & PBX</div>
+                            <div class="text-xs font-bold text-brand-white uppercase">Despacho & Telefonía</div>
                             <div class="text-[11px] text-brand-cobalt-light mt-0.5">Captura rápida de llamadas y asignación de móviles.</div>
                         </div>
                         <div class="bg-black/20 border border-white/15 rounded-lg p-3.5">
@@ -96,7 +96,7 @@
                 <!-- Footer Security Notice -->
                 <div class="relative z-10 flex items-center justify-between text-xs text-brand-cobalt-light border-t border-white/15 pt-4">
                     <span><i class="fa-solid fa-lock mr-1" aria-hidden="true"></i> Acceso restringido y auditado • Red Interna Municipal</span>
-                    <span class="font-mono cad-tabular font-bold text-brand-lime-light">Fono Emergencias: 1452</span>
+                    <span class="font-mono cad-tabular font-bold text-brand-lime-light">Fonos Emergencias: 1426 • 800 00 2015</span>
                 </div>
             </div>
 
@@ -124,8 +124,11 @@
                     </div>
                 </div>
 
-                <div class="text-center text-[11px] text-ui-muted">
-                    © {{ date('Y') }} Ilustre Municipalidad de Buin • Dirección de Seguridad Pública
+                <div class="text-center text-[11px] text-ui-muted space-y-1">
+                    <div class="lg:hidden text-xs font-bold text-brand-cobalt dark:text-brand-lime font-mono">
+                        Fonos Emergencias: 1426 • 800 00 2015
+                    </div>
+                    <div>© {{ date('Y') }} Ilustre Municipalidad de Buin • Dirección de Seguridad Pública</div>
                 </div>
             </div>
         </div>
