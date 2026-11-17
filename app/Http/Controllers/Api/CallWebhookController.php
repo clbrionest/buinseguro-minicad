@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\NewCallIncoming;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Call;
 use Illuminate\Http\Request;
 
@@ -11,56 +12,108 @@ class CallWebhookController extends Controller
 {
     public function handle(Request $request)
     {
-        // Validación de token de seguridad (si ASTERISK_WEBHOOK_TOKEN está configurado en .env)
-        $configuredToken = config('services.asterisk.webhook_token');
-        if (! empty($configuredToken)) {
-            $providedToken = $request->header('X-Asterisk-Token') ?? $request->input('token');
-            if (! hash_equals((string) $configuredToken, (string) $providedToken)) {
-                return response()->json(['error' => 'Unauthorized webhook request'], 401);
+        try {
+            // Validación de token de seguridad (si ASTERISK_WEBHOOK_TOKEN está configurado en .env)
+            $configuredToken = config('services.asterisk.webhook_token');
+            if (! empty($configuredToken)) {
+                $providedToken = $request->header('X-Asterisk-Token') ?? $request->input('token');
+                if (! hash_equals((string) $configuredToken, (string) $providedToken)) {
+                    AuditLog::record(
+                        'security.unauthorized_webhook',
+                        'Telefonía PBX',
+                        'Intento no autorizado de webhook Asterisk (token inválido o no suministrado).',
+                        null,
+                        ['ip' => $request->ip()]
+                    );
+
+                    return response()->json(['error' => 'Unauthorized webhook request'], 401);
+                }
             }
-        }
 
-        // Limpiamos el ID por si Asterisk manda espacios en blanco
-        $asteriskId = trim((string) $request->id);
-        if ($asteriskId === '') {
-            return response()->json(['error' => 'Missing call id'], 422);
-        }
+            // Limpiamos el ID por si Asterisk manda espacios en blanco
+            $asteriskId = trim((string) $request->id);
+            if ($asteriskId === '') {
+                AuditLog::record(
+                    'call.webhook_invalid_payload',
+                    'Telefonía PBX',
+                    'Webhook de llamada rechazado: falta el identificador de llamada (call id).',
+                    null,
+                    ['ip' => $request->ip(), 'payload' => $request->except(['token'])]
+                );
 
-        // Validamos que la ruta de grabación traiga archivo real, no solo carpeta de fecha y sin saltos de directorio (..)
-        $rawPath = trim((string) $request->recording_path);
-        $cleanedPath = preg_replace('#^(/var/spool/asterisk)?/monitor/#', '', $rawPath);
-        $cleanedPath = ltrim((string) $cleanedPath, '/');
-
-        $validRecordingPath = ($request->filled('recording_path') && strlen($cleanedPath) > 4 && ! str_contains($rawPath, '..'))
-            ? $cleanedPath
-            : null;
-
-        // 1. Buscamos si la llamada ya existe
-        $call = Call::where('asterisk_id', $asteriskId)->first();
-
-        if ($call) {
-            // SI EXISTE: Solo actualizamos el estado y la ruta de grabación (si es válida)
-            $call->update([
-                'status' => $request->status ?? $call->status,
-                'recording_path' => $validRecordingPath ?? $call->recording_path,
-            ]);
-        } else {
-            // NO EXISTE: Es una llamada nueva (Ringing)
-            $call = Call::create([
-                'asterisk_id' => $asteriskId,
-                'caller_id' => $request->numero ?? 'Desconocido',
-                'extension' => $request->extension ?? '0',
-                'status' => $request->status ?? 'ringing',
-                'recording_path' => $validRecordingPath,
-            ]);
-
-            // SOLO lanzamos el evento si es una creación real (Ringing)
-            // y nos aseguramos de que el estado sea 'ringing'
-            if ($call->status === 'ringing') {
-                broadcast(new NewCallIncoming($call));
+                return response()->json(['error' => 'Missing call id'], 422);
             }
-        }
 
-        return response()->json(['success' => true]);
+            // Validamos que la ruta de grabación traiga archivo real, no solo carpeta de fecha y sin saltos de directorio (..)
+            $rawPath = trim((string) $request->recording_path);
+            $cleanedPath = preg_replace('#^(/var/spool/asterisk)?/monitor/#', '', $rawPath);
+            $cleanedPath = ltrim((string) $cleanedPath, '/');
+
+            $validRecordingPath = ($request->filled('recording_path') && strlen($cleanedPath) > 4 && ! str_contains($rawPath, '..'))
+                ? $cleanedPath
+                : null;
+
+            // 1. Buscamos si la llamada ya existe
+            $call = Call::where('asterisk_id', $asteriskId)->first();
+
+            if ($call) {
+                // SI EXISTE: Solo actualizamos el estado y la ruta de grabación (si es válida)
+                $call->update([
+                    'status' => $request->status ?? $call->status,
+                    'recording_path' => $validRecordingPath ?? $call->recording_path,
+                ]);
+
+                AuditLog::record(
+                    'call.status_updated',
+                    'Telefonía PBX',
+                    "Llamada Asterisk #{$call->asterisk_id} actualizada a estado '{$call->status}'.",
+                    $call,
+                    [
+                        'status' => $call->status,
+                        'extension' => $call->extension,
+                        'recording_path' => $call->recording_path,
+                    ]
+                );
+            } else {
+                // NO EXISTE: Es una llamada nueva (Ringing)
+                $call = Call::create([
+                    'asterisk_id' => $asteriskId,
+                    'caller_id' => $request->numero ?? 'Desconocido',
+                    'extension' => $request->extension ?? '0',
+                    'status' => $request->status ?? 'ringing',
+                    'recording_path' => $validRecordingPath,
+                ]);
+
+                AuditLog::record(
+                    'call.incoming',
+                    'Telefonía PBX',
+                    "Llamada entrante recibida desde {$call->caller_id} hacia anexo {$call->extension} (Asterisk #{$call->asterisk_id}).",
+                    $call,
+                    [
+                        'caller_id' => $call->caller_id,
+                        'extension' => $call->extension,
+                        'status' => $call->status,
+                    ]
+                );
+
+                // SOLO lanzamos el evento si es una creación real (Ringing)
+                // y nos aseguramos de que el estado sea 'ringing'
+                if ($call->status === 'ringing') {
+                    broadcast(new NewCallIncoming($call));
+                }
+            }
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            AuditLog::recordError(
+                'Telefonía PBX',
+                'Error no controlado al procesar webhook de Asterisk',
+                $e,
+                null,
+                ['payload' => $request->except(['token'])]
+            );
+
+            return response()->json(['error' => 'Internal error processing webhook'], 500);
+        }
     }
 }

@@ -22,7 +22,11 @@
                 </div>
                 <div class="bg-slate-800 border {{ $securityAlertsCount > 0 ? 'border-rose-500/60 bg-rose-950/40' : 'border-slate-700' }} rounded-xl px-4 py-2.5 text-center">
                     <span class="block text-xl font-black {{ $securityAlertsCount > 0 ? 'text-rose-400' : 'text-emerald-400' }}">{{ $securityAlertsCount }}</span>
-                    <span class="text-[10px] uppercase font-bold text-slate-400">Accesos Denegados Hoy</span>
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Seguridad / Denegados</span>
+                </div>
+                <div class="bg-slate-800 border {{ $systemErrorsCount > 0 ? 'border-amber-500/60 bg-amber-950/40' : 'border-slate-700' }} rounded-xl px-4 py-2.5 text-center">
+                    <span class="block text-xl font-black {{ $systemErrorsCount > 0 ? 'text-amber-400' : 'text-slate-400' }}">{{ $systemErrorsCount }}</span>
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Errores del Sistema</span>
                 </div>
             </div>
         </div>
@@ -90,9 +94,20 @@
                     <tbody class="divide-y divide-slate-100">
                         @forelse($logs as $log)
                             @php
-                                $isDenied = $log->action === 'security.denied';
+                                $isSecurity = str_starts_with($log->action, 'security.');
+                                $isError = str_starts_with($log->action, 'system.error')
+                                    || str_starts_with($log->action, 'system.exception')
+                                    || str_starts_with($log->action, 'error.');
+                                
+                                $rowBg = $isSecurity ? 'bg-rose-50/70' : ($isError ? 'bg-amber-50/70' : 'hover:bg-slate-50');
+                                $badgeColor = $isSecurity
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : ($isError ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800');
+                                $titleColor = $isSecurity
+                                    ? 'text-rose-800 font-bold'
+                                    : ($isError ? 'text-amber-900 font-bold' : 'text-slate-800');
                             @endphp
-                            <tr class="{{ $isDenied ? 'bg-rose-50/70' : 'hover:bg-slate-50' }}">
+                            <tr class="{{ $rowBg }}">
                                 <td class="px-4 py-3 whitespace-nowrap font-mono text-xs text-slate-600">
                                     <div class="font-bold text-slate-800">{{ $log->created_at->format('d/m/Y') }}</div>
                                     <div>{{ $log->created_at->format('H:i:s') }}</div>
@@ -106,13 +121,13 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase {{ $isDenied ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800' }}">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase {{ $badgeColor }}">
                                         {{ $log->module }}
                                     </span>
                                     <div class="font-mono text-[11px] text-slate-500 mt-0.5">{{ $log->action }}</div>
                                 </td>
                                 <td class="px-4 py-3 text-xs text-slate-700">
-                                    <div class="font-semibold {{ $isDenied ? 'text-rose-800 font-bold' : 'text-slate-800' }}">
+                                    <div class="font-semibold {{ $titleColor }}">
                                         {{ $log->description }}
                                     </div>
                                     @if(!empty($log->metadata))
