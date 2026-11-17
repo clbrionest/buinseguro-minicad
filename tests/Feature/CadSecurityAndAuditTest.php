@@ -2,24 +2,26 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
+use App\Livewire\CreateProcedure;
+use App\Livewire\IncomingCallPopup;
+use App\Livewire\ManageCatalogs;
+use App\Livewire\ManageOperatorShifts;
+use App\Mail\ShiftClosedReportMail;
+use App\Models\Call;
+use App\Models\OperatorShift;
+use App\Models\Origin;
+use App\Models\Procedure;
+use App\Models\ProcedureType;
+use App\Models\Sector;
+use App\Models\ShiftReportRecipient;
+use App\Models\SystemCatalogItem;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Spatie\Permission\Models\Role;
-use App\Models\User;
-use App\Models\Sector;
-use App\Models\Origin;
-use App\Models\ProcedureType;
-use App\Models\Procedure;
-use App\Models\Call;
-use App\Models\OperatorShift;
-use App\Models\ShiftReportRecipient;
-use App\Models\AuditLog;
-use App\Mail\ShiftClosedReportMail;
 use Livewire\Livewire;
-use App\Livewire\CreateProcedure;
-use App\Livewire\ManageOperatorShifts;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 class CadSecurityAndAuditTest extends TestCase
 {
@@ -157,6 +159,52 @@ class CadSecurityAndAuditTest extends TestCase
         $call = Call::where('asterisk_id', 'pbx-001')->first();
         $this->assertNotNull($call);
         $this->assertNull($call->recording_path);
+
+        // Con ruta de monitor absoluta -> se normaliza a relativa
+        $this->withHeaders(['X-Asterisk-Token' => 'secret-pbx-token-2026'])
+            ->postJson('/v1/asterisk/webhook', [
+                'id' => 'pbx-002',
+                'numero' => '987654321',
+                'extension' => '101',
+                'status' => 'answered',
+                'recording_path' => '/monitor/2026/11/17/call-002.wav',
+            ])->assertStatus(200);
+
+        $call2 = Call::where('asterisk_id', 'pbx-002')->first();
+        $this->assertNotNull($call2);
+        $this->assertSame('2026/11/17/call-002.wav', $call2->recording_path);
+    }
+
+    public function test_incoming_call_popup_dispatches_stop_ringtone_on_dismiss_and_create(): void
+    {
+        $operator = User::factory()->create(['extension' => '101']);
+        $operator->assignRole('Operador');
+
+        Livewire::actingAs($operator)
+            ->test(IncomingCallPopup::class)
+            ->call('handleIncomingCall', [
+                'call' => [
+                    'id' => 999,
+                    'caller_id' => '+56912345678',
+                    'extension' => '101',
+                ],
+            ])
+            ->assertDispatched('play-ringtone')
+            ->call('dismiss')
+            ->assertDispatched('stop-ringtone');
+
+        Livewire::actingAs($operator)
+            ->test(IncomingCallPopup::class)
+            ->call('handleIncomingCall', [
+                'call' => [
+                    'id' => 999,
+                    'caller_id' => '+56912345678',
+                    'extension' => '101',
+                ],
+            ])
+            ->call('createProcedure')
+            ->assertDispatched('stop-ringtone')
+            ->assertDispatched('openModal');
     }
 
     public function test_operator_cannot_create_or_view_procedure_in_unauthorized_sector(): void
@@ -281,7 +329,7 @@ class CadSecurityAndAuditTest extends TestCase
 
         // 1. Crear Sector válido y rechazar duplicado
         Livewire::actingAs($admin)
-            ->test(\App\Livewire\ManageCatalogs::class)
+            ->test(ManageCatalogs::class)
             ->set('activeTab', 'sectors')
             ->set('name', 'Sector Alto Jahuel')
             ->call('save')
@@ -290,7 +338,7 @@ class CadSecurityAndAuditTest extends TestCase
         $this->assertDatabaseHas('sectors', ['name' => 'Sector Alto Jahuel']);
 
         Livewire::actingAs($admin)
-            ->test(\App\Livewire\ManageCatalogs::class)
+            ->test(ManageCatalogs::class)
             ->set('activeTab', 'sectors')
             ->set('name', 'Sector Alto Jahuel')
             ->call('save')
@@ -298,7 +346,7 @@ class CadSecurityAndAuditTest extends TestCase
 
         // 2. Crear ítem de catálogo parametrizable (Rol de Estación de Sala) y validar unicidad en su grupo
         Livewire::actingAs($admin)
-            ->test(\App\Livewire\ManageCatalogs::class)
+            ->test(ManageCatalogs::class)
             ->set('activeTab', 'operator_station_roles')
             ->set('name', 'Operador Dron / UAV')
             ->set('code', 'OP_UAV')
@@ -314,7 +362,7 @@ class CadSecurityAndAuditTest extends TestCase
         ]);
 
         Livewire::actingAs($admin)
-            ->test(\App\Livewire\ManageCatalogs::class)
+            ->test(ManageCatalogs::class)
             ->set('activeTab', 'operator_station_roles')
             ->set('name', 'Operador Dron / UAV')
             ->call('save')
@@ -389,12 +437,12 @@ class CadSecurityAndAuditTest extends TestCase
             ->call('addRoomEquipment')
             ->assertHasNoErrors();
 
-        $eq = \App\Models\SystemCatalogItem::where('catalog_group', 'room_equipments')
+        $eq = SystemCatalogItem::where('catalog_group', 'room_equipments')
             ->where('name', 'Videowall Central 4K')
             ->first();
 
         $this->assertNotNull($eq);
-        $this->assertArrayHasKey('videowall_central_4k', \App\Models\SystemCatalogItem::roomEquipmentsMap());
+        $this->assertArrayHasKey('videowall_central_4k', SystemCatalogItem::roomEquipmentsMap());
 
         // 2. Quitar equipo con Soft-Delete -> desaparece del mapa activo pero conserva resolución histórica
         Livewire::actingAs($supervisor)
@@ -403,8 +451,8 @@ class CadSecurityAndAuditTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSoftDeleted('system_catalog_items', ['id' => $eq->id]);
-        $this->assertArrayNotHasKey('videowall_central_4k', \App\Models\SystemCatalogItem::roomEquipmentsMap());
-        $this->assertSame('Videowall Central 4K', \App\Models\SystemCatalogItem::resolveEquipmentLabel('videowall_central_4k'));
+        $this->assertArrayNotHasKey('videowall_central_4k', SystemCatalogItem::roomEquipmentsMap());
+        $this->assertSame('Videowall Central 4K', SystemCatalogItem::resolveEquipmentLabel('videowall_central_4k'));
 
         // 3. Restaurar equipo desde Soft-Delete
         Livewire::actingAs($supervisor)
@@ -413,7 +461,7 @@ class CadSecurityAndAuditTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertNotSoftDeleted('system_catalog_items', ['id' => $eq->id]);
-        $this->assertArrayHasKey('videowall_central_4k', \App\Models\SystemCatalogItem::roomEquipmentsMap());
+        $this->assertArrayHasKey('videowall_central_4k', SystemCatalogItem::roomEquipmentsMap());
     }
 
     public function test_design_system_theme_preference_persistence_and_semantic_views(): void
@@ -455,6 +503,3 @@ class CadSecurityAndAuditTest extends TestCase
             ->assertSee('Consola Móvil Operativa');
     }
 }
-
-
-

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\NewCallIncoming;
 use App\Http\Controllers\Controller;
 use App\Models\Call;
-use App\Events\NewCallIncoming;
 use Illuminate\Http\Request;
 
 class CallWebhookController extends Controller
@@ -13,9 +13,9 @@ class CallWebhookController extends Controller
     {
         // Validación de token de seguridad (si ASTERISK_WEBHOOK_TOKEN está configurado en .env)
         $configuredToken = config('services.asterisk.webhook_token');
-        if (!empty($configuredToken)) {
+        if (! empty($configuredToken)) {
             $providedToken = $request->header('X-Asterisk-Token') ?? $request->input('token');
-            if (!hash_equals((string) $configuredToken, (string) $providedToken)) {
+            if (! hash_equals((string) $configuredToken, (string) $providedToken)) {
                 return response()->json(['error' => 'Unauthorized webhook request'], 401);
             }
         }
@@ -28,8 +28,11 @@ class CallWebhookController extends Controller
 
         // Validamos que la ruta de grabación traiga archivo real, no solo carpeta de fecha y sin saltos de directorio (..)
         $rawPath = trim((string) $request->recording_path);
-        $validRecordingPath = ($request->filled('recording_path') && strlen($rawPath) > 12 && !str_contains($rawPath, '..'))
-            ? $rawPath
+        $cleanedPath = preg_replace('#^(/var/spool/asterisk)?/monitor/#', '', $rawPath);
+        $cleanedPath = ltrim((string) $cleanedPath, '/');
+
+        $validRecordingPath = ($request->filled('recording_path') && strlen($cleanedPath) > 4 && ! str_contains($rawPath, '..'))
+            ? $cleanedPath
             : null;
 
         // 1. Buscamos si la llamada ya existe
@@ -54,7 +57,7 @@ class CallWebhookController extends Controller
             // SOLO lanzamos el evento si es una creación real (Ringing)
             // y nos aseguramos de que el estado sea 'ringing'
             if ($call->status === 'ringing') {
-                broadcast(new \App\Events\NewCallIncoming($call));
+                broadcast(new NewCallIncoming($call));
             }
         }
 
