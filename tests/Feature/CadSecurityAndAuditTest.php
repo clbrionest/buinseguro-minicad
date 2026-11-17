@@ -7,6 +7,7 @@ use App\Livewire\IncomingCallPopup;
 use App\Livewire\ManageCatalogs;
 use App\Livewire\ManageOperatorShifts;
 use App\Mail\ShiftClosedReportMail;
+use App\Models\AuditLog;
 use App\Models\Call;
 use App\Models\OperatorShift;
 use App\Models\Origin;
@@ -16,6 +17,9 @@ use App\Models\Sector;
 use App\Models\ShiftReportRecipient;
 use App\Models\SystemCatalogItem;
 use App\Models\User;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -501,5 +505,133 @@ class CadSecurityAndAuditTest extends TestCase
             ->assertOk()
             ->assertSee('data-theme-preference="light"', false)
             ->assertSee('Consola Móvil Operativa');
+    }
+
+    public function test_audit_log_records_system_actions_and_errors_with_metadata(): void
+    {
+        $user = User::factory()->create();
+
+        // 1. Registro de acción normal
+        $log = AuditLog::record(
+            'procedure.export',
+            'Procedimientos',
+            'Exportación de reporte de procedimientos a PDF.',
+            $user,
+            ['format' => 'pdf', 'total_records' => 15],
+            $user->id
+        );
+
+        $this->assertNotNull($log);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'procedure.export',
+            'module' => 'Procedimientos',
+            'user_id' => $user->id,
+        ]);
+
+        // 2. Registro de error estructurado con excepción
+        $exception = new \RuntimeException('Error simulado al procesar cola de despacho');
+        $errorLog = AuditLog::recordError(
+            'Despacho',
+            'Fallo de sincronización con móvil',
+            $exception,
+            $user,
+            ['attempt' => 3],
+            $user->id
+        );
+
+        $this->assertNotNull($errorLog);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'system.error',
+            'module' => 'Despacho',
+            'user_id' => $user->id,
+        ]);
+        $this->assertSame('RuntimeException', $errorLog->metadata['exception_class']);
+        $this->assertSame('Error simulado al procesar cola de despacho', $errorLog->metadata['exception_message']);
+    }
+
+    public function test_webhook_and_audio_log_security_events_and_call_lifecycle(): void
+    {
+        config(['services.asterisk.webhook_token' => 'test-pbx-token']);
+
+        // 1. Webhook rechaza token inválido y registra en audit_logs
+        $this->postJson('/v1/asterisk/webhook', [
+            'id' => 'call-audit-01',
+            'numero' => '911223344',
+            'status' => 'ringing',
+        ])->assertStatus(401);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'security.unauthorized_webhook',
+            'module' => 'Telefonía PBX',
+        ]);
+
+        // 2. Webhook exitoso registra llamada entrante
+        $this->withHeaders(['X-Asterisk-Token' => 'test-pbx-token'])
+            ->postJson('/v1/asterisk/webhook', [
+                'id' => 'call-audit-02',
+                'numero' => '911223344',
+                'extension' => '102',
+                'status' => 'ringing',
+            ])->assertStatus(200);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'call.incoming',
+            'module' => 'Telefonía PBX',
+        ]);
+
+        // 3. Audio Controller registra intento de path traversal
+        $operator = User::factory()->create(['extension' => '102']);
+        $operator->assignRole('Operador');
+
+        $traversalCall = Call::create([
+            'asterisk_id' => 'ast-trav-audit',
+            'caller_id' => '911223344',
+            'extension' => '102',
+            'status' => 'answered',
+            'recording_path' => '../../../../etc/shadow',
+        ]);
+
+        $this->actingAs($operator)
+            ->get(route('calls.play', $traversalCall))
+            ->assertStatus(404);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'security.path_traversal',
+            'module' => 'Telefonía PBX',
+        ]);
+    }
+
+    public function test_authentication_events_are_recorded_in_audit_log(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'operador.guardia@buinseguro.cl',
+            'password' => bcrypt('password123'),
+        ]);
+
+        // 1. Login exitoso
+        event(new Login('web', $user, false));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'auth.login',
+            'module' => 'Seguridad y Acceso',
+            'user_id' => $user->id,
+        ]);
+
+        // 2. Intento fallido
+        event(new Failed('web', null, ['email' => 'intruso@externo.cl']));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'auth.failed',
+            'module' => 'Seguridad y Acceso',
+        ]);
+
+        // 3. Logout
+        event(new Logout('web', $user));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'auth.logout',
+            'module' => 'Seguridad y Acceso',
+            'user_id' => $user->id,
+        ]);
     }
 }

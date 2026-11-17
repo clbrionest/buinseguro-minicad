@@ -2,18 +2,21 @@
 
 namespace App\Livewire;
 
-use Livewire\Component;
-use Livewire\WithPagination;
 use App\Models\AuditLog;
 use App\Models\User;
+use Livewire\Component;
+use Livewire\WithPagination;
 
 class AuditLogsViewer extends Component
 {
     use WithPagination;
 
     public $search = '';
+
     public $filterModule = '';
+
     public $filterUser = '';
+
     public $filterDate = '';
 
     public function mount()
@@ -50,9 +53,9 @@ class AuditLogsViewer extends Component
     public function render()
     {
         $query = AuditLog::with('user')
-            ->when($this->filterModule, fn($q) => $q->where('module', $this->filterModule))
-            ->when($this->filterUser, fn($q) => $q->where('user_id', $this->filterUser))
-            ->when($this->filterDate, fn($q) => $q->whereDate('created_at', $this->filterDate))
+            ->when($this->filterModule, fn ($q) => $q->where('module', $this->filterModule))
+            ->when($this->filterUser, fn ($q) => $q->where('user_id', $this->filterUser))
+            ->when($this->filterDate, fn ($q) => $q->whereDate('created_at', $this->filterDate))
             ->when(trim($this->search) !== '', function ($q) {
                 $term = trim($this->search);
                 $q->where(function ($sub) use ($term) {
@@ -72,9 +75,15 @@ class AuditLogsViewer extends Component
 
         $users = User::orderBy('name')->get(['id', 'name', 'email']);
 
-        $securityAlertsCount = AuditLog::where('action', 'security.denied')
+        $securityAlertsCount = AuditLog::where('action', 'like', 'security.%')
             ->whereDate('created_at', today())
             ->count();
+
+        $systemErrorsCount = AuditLog::where(function ($q) {
+            $q->where('action', 'like', 'system.error%')
+                ->orWhere('action', 'like', 'system.exception%')
+                ->orWhere('action', 'like', 'error.%');
+        })->whereDate('created_at', today())->count();
 
         $todayEventsCount = AuditLog::whereDate('created_at', today())->count();
 
@@ -83,6 +92,7 @@ class AuditLogsViewer extends Component
             'modules' => $modules,
             'users' => $users,
             'securityAlertsCount' => $securityAlertsCount,
+            'systemErrorsCount' => $systemErrorsCount,
             'todayEventsCount' => $todayEventsCount,
         ])->layout('layouts.app');
     }
