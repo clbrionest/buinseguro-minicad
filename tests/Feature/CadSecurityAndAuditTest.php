@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\CallsReport;
 use App\Livewire\CreateProcedure;
 use App\Livewire\IncomingCallPopup;
 use App\Livewire\ManageCatalogs;
@@ -633,5 +634,111 @@ class CadSecurityAndAuditTest extends TestCase
             'module' => 'Seguridad y Acceso',
             'user_id' => $user->id,
         ]);
+    }
+
+    public function test_calls_report_allows_linking_and_unlinking_call_to_existing_procedure(): void
+    {
+        $operator = User::factory()->create();
+        $operator->assignRole('Operador');
+
+        $sector = Sector::create(['name' => 'Sector Buin Centro']);
+        $type = ProcedureType::create(['name' => 'Denuncia Ruidos']);
+        $origin = Origin::create(['name' => '1426']);
+
+        $procedure = Procedure::create([
+            'sector_id' => $sector->id,
+            'procedure_type_id' => $type->id,
+            'initial_procedure_type_id' => $type->id,
+            'origin_id' => $origin->id,
+            'user_id' => $operator->id,
+            'exact_address' => 'Balmaceda 123',
+            'caller_name' => 'Vecino Alerta',
+            'caller_phone' => '+56911223344',
+            'status' => 'Pendiente',
+        ]);
+
+        $call = Call::create([
+            'asterisk_id' => 'ast-link-001',
+            'caller_id' => '+56911223344',
+            'extension' => '101',
+            'status' => 'completed',
+            'recording_path' => '2026/11/17/external-101.wav',
+        ]);
+
+        $this->assertNull($call->procedure_id);
+        $this->assertNull($procedure->call_id);
+
+        // 1. Vincular llamada a procedimiento existente
+        Livewire::actingAs($operator)
+            ->test(CallsReport::class)
+            ->call('openLinkModal', $call->id)
+            ->assertSet('isLinkModalOpen', true)
+            ->assertSet('selectedCallForLinkingId', $call->id)
+            ->call('linkCallToProcedure', $procedure->id)
+            ->assertSet('isLinkModalOpen', false);
+
+        $this->assertSame($procedure->id, $call->fresh()->procedure_id);
+        $this->assertSame($call->id, $procedure->fresh()->call_id);
+
+        $this->assertDatabaseHas('procedure_logs', [
+            'procedure_id' => $procedure->id,
+            'action_type' => 'Llamada Vinculada',
+        ]);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'call.linked_to_procedure',
+            'module' => 'Telefonía PBX',
+        ]);
+
+        // 2. Desvincular llamada
+        Livewire::actingAs($operator)
+            ->test(CallsReport::class)
+            ->call('unlinkCall', $call->id);
+
+        $this->assertNull($call->fresh()->procedure_id);
+        $this->assertNull($procedure->fresh()->call_id);
+
+        $this->assertDatabaseHas('procedure_logs', [
+            'procedure_id' => $procedure->id,
+            'action_type' => 'Llamada Desvinculada',
+        ]);
+    }
+
+    public function test_create_procedure_listens_to_open_modal_and_links_call_when_saved(): void
+    {
+        $operator = User::factory()->create();
+        $operator->assignRole('Operador');
+
+        $sector = Sector::create(['name' => 'Sector Maipo']);
+        $operator->sectors()->attach($sector->id);
+        $type = ProcedureType::create(['name' => 'Accidente']);
+        $origin = Origin::create(['name' => '1426']);
+
+        $call = Call::create([
+            'asterisk_id' => 'ast-create-proc-001',
+            'caller_id' => '+56988887777',
+            'extension' => '102',
+            'status' => 'ringing',
+        ]);
+
+        Livewire::actingAs($operator)
+            ->test(CreateProcedure::class)
+            ->assertSet('isOpen', false)
+            ->call('openModal', '+56988887777', $call->id)
+            ->assertSet('isOpen', true)
+            ->assertSet('caller_phone', '+56988887777')
+            ->assertSet('call_id', $call->id)
+            ->set('sector_id', $sector->id)
+            ->set('procedure_type_id', $type->id)
+            ->set('origin_id', $origin->id)
+            ->set('exact_address', 'Av. San Martín 456')
+            ->call('save')
+            ->assertSet('isOpen', false)
+            ->assertDispatched('procedure-created');
+
+        $newProcedure = Procedure::where('caller_phone', '+56988887777')->first();
+        $this->assertNotNull($newProcedure);
+        $this->assertSame($call->id, $newProcedure->call_id);
+        $this->assertSame($newProcedure->id, $call->fresh()->procedure_id);
     }
 }

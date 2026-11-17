@@ -108,7 +108,12 @@
                 <span>Contingencias</span>
             </x-cad.button>
             @endhasanyrole
-            <livewire:create-procedure />
+            <button type="button"
+                    wire:click="$dispatch('openModal')"
+                    class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black font-extrabold py-2 px-4 rounded-lg shadow-xs text-xs inline-flex items-center gap-1.5 transition min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-focus">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                <span>Crear Procedimiento</span>
+            </button>
         </div>
     </div>
 
