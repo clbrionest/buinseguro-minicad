@@ -121,6 +121,62 @@
         </div>
     @endif
 
+    {{-- SECCIÓN PATRULLAJE PREVENTIVO ACTIVO (VALIDACIÓN DE HITOS EN TERRENO) --}}
+    @if(isset($activePreventivePatrol) && $activePreventivePatrol)
+        <div class="mb-6 bg-ui-card rounded-2xl border-2 border-brand-cobalt/40 p-4 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between border-b border-ui-border pb-2.5 mb-3 gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <a href="{{ route('patrols.preventive.show', $activePreventivePatrol) }}" wire:navigate class="text-xs font-black uppercase text-brand-cobalt dark:text-brand-cobalt-light hover:underline">
+                        🛡️ Patrullaje Preventivo: {{ $activePreventivePatrol->folio }}
+                    </a>
+                    <span class="text-[11px] font-bold text-ui-muted">({{ $activePreventivePatrol->patrol_type }})</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-mono font-bold text-ui-fg">
+                        {{ $activePreventivePatrol->validated_checkpoints_count }}/{{ $activePreventivePatrol->total_checkpoints_count }} validados
+                    </span>
+                    <button type="button"
+                            wire:click="$dispatch('openModalWithPatrol', { patrolId: {{ $activePreventivePatrol->id }} })"
+                            class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-2.5 py-1 rounded-lg transition shadow-xs">
+                        + Iniciar Caso desde Patrullaje
+                    </button>
+                </div>
+            </div>
+
+            @if($activePreventivePatrol->checkpoints->count() > 0)
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" x-data>
+                    @foreach($activePreventivePatrol->checkpoints as $cp)
+                        <div class="p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 {{ $cp->status === 'Validado' ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-ui-subtle border-ui-border' }}">
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-ui-fg truncate">{{ $cp->order }}. {{ $cp->name }}</div>
+                                <div class="text-[10px] text-ui-muted truncate">{{ $cp->address }}</div>
+                            </div>
+                            @if($cp->status === 'Validado')
+                                <span class="text-[11px] font-bold text-emerald-600 shrink-0 font-mono">✓ {{ $cp->validated_at?->format('H:i') }}</span>
+                            @else
+                                <button type="button"
+                                        @click="
+                                            if (navigator.geolocation) {
+                                                navigator.geolocation.getCurrentPosition(
+                                                    (pos) => $wire.validatePatrolCheckpoint({{ $cp->id }}, pos.coords.latitude, pos.coords.longitude),
+                                                    () => $wire.validatePatrolCheckpoint({{ $cp->id }})
+                                                );
+                                            } else {
+                                                $wire.validatePatrolCheckpoint({{ $cp->id }});
+                                            }
+                                        "
+                                        class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-xs shrink-0 shadow-xs">
+                                    Validar Paso
+                                </button>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    @endif
+
     {{-- SECCIÓN 1: PROCEDIMIENTOS ASIGNADOS AL MÓVIL --}}
     <div class="mb-6">
         <div class="flex justify-between items-center mb-3">

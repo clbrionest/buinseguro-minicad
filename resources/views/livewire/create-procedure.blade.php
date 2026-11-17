@@ -15,7 +15,15 @@
                 <div class="flex justify-between items-center bg-ui-sidebar text-brand-white px-6 py-4 rounded-t-xl border-b border-white/10">
                     <div>
                         <span class="text-[10px] font-extrabold uppercase tracking-widest text-brand-lime-light block">CONSOLA DE RECEPCIÓN Y DESPACHO CAD</span>
-                        <h3 id="modal-new-proc-title" class="text-lg font-extrabold">Ingreso de Nuevo Procedimiento</h3>
+                        <h3 id="modal-new-proc-title" class="text-lg font-extrabold flex items-center gap-2 flex-wrap">
+                            <span>Ingreso de Nuevo Procedimiento</span>
+                            @if($preventivePatrolFolio)
+                                <span class="bg-brand-lime text-brand-black text-[11px] font-black px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-xs">
+                                    <i class="fa-solid fa-shield-halved text-xs"></i>
+                                    <span>Desde Patrullaje {{ $preventivePatrolFolio }}</span>
+                                </span>
+                            @endif
+                        </h3>
                     </div>
                     <button type="button" wire:click="closeModal" aria-label="Cerrar modal" class="text-brand-white/70 hover:text-brand-white focus:outline-none p-1">
                         <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>

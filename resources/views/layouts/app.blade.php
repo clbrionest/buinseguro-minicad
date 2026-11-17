@@ -62,6 +62,7 @@
             </main>
         </div>
         <livewire:create-procedure :showButton="false" />
+        <livewire:create-preventive-patrol :showButton="false" />
         <livewire:incoming-call-popup />
     </body>
 </html>

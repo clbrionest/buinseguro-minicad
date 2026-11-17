@@ -6,6 +6,8 @@ use App\Models\Device;
 use App\Models\EventReport;
 use App\Models\Evidence;
 use App\Models\PatrolAssignment;
+use App\Models\PreventivePatrol;
+use App\Models\PreventivePatrolCheckpoint;
 use App\Models\Procedure;
 use App\Models\ProcedureLog;
 use App\Models\SystemCatalogItem;
@@ -80,7 +82,61 @@ class FieldInspectorPanel extends Component
             'last_location_at' => now(),
         ]);
 
+        // Registrar trazabilidad GPS en el patrullaje preventivo si está activo
+        $activePatrol = PreventivePatrol::where('device_id', $this->selected_device_id)
+            ->where('status', 'En Curso')
+            ->latest('started_at')
+            ->first();
+
+        if ($activePatrol) {
+            $activePatrol->recordGpsPoint($lat, $lng);
+        }
+
+        // Registrar trazabilidad GPS en el patrullaje preventivo si está activo
+        $activePatrol = \App\Models\PreventivePatrol::where('device_id', $this->selected_device_id)
+            ->where('status', 'En Curso')
+            ->latest('started_at')
+            ->first();
+
+        if ($activePatrol) {
+            $activePatrol->recordGpsPoint($lat, $lng);
+        }
+
         session()->flash('field_message', 'Ubicación GPS del móvil actualizada en el Mapa Operativo.');
+    }
+
+    public function validatePatrolCheckpoint($checkpointId, $lat = null, $lng = null)
+    {
+        $checkpoint = PreventivePatrolCheckpoint::findOrFail($checkpointId);
+
+        $checkpoint->validateCheckpoint(
+            lat: $lat ? (float) $lat : null,
+            lng: $lng ? (float) $lng : null,
+            userId: Auth::id()
+        );
+
+        if ($lat && $lng) {
+            $checkpoint->preventivePatrol->recordGpsPoint($lat, $lng);
+        }
+
+        session()->flash('field_message', "Hito '{$checkpoint->name}' validado con éxito.");
+    }
+
+    public function validatePatrolCheckpoint($checkpointId, $lat = null, $lng = null)
+    {
+        $checkpoint = \App\Models\PreventivePatrolCheckpoint::findOrFail($checkpointId);
+
+        $checkpoint->validateCheckpoint(
+            lat: $lat ? (float) $lat : null,
+            lng: $lng ? (float) $lng : null,
+            userId: Auth::id()
+        );
+
+        if ($lat && $lng) {
+            $checkpoint->preventivePatrol->recordGpsPoint($lat, $lng);
+        }
+
+        session()->flash('field_message', "Hito '{$checkpoint->name}' validado con éxito.");
     }
 
     public function confirmArrivalFromField($procedureId, $lat = null, $lng = null)
@@ -187,6 +243,7 @@ class FieldInspectorPanel extends Component
 
         $assignedProcedures = collect();
         $assignedEventReports = collect();
+        $activePreventivePatrol = null;
 
         if ($currentDevice) {
             $assignedProcedures = Procedure::with(['sector', 'procedureType', 'origin'])
@@ -201,6 +258,18 @@ class FieldInspectorPanel extends Component
                 ->whereHas('event', fn ($q) => $q->where('is_active', true))
                 ->orderBy('created_at', 'desc')
                 ->get();
+
+            $activePreventivePatrol = PreventivePatrol::with(['checkpoints'])
+                ->where('device_id', $currentDevice->id)
+                ->where('status', 'En Curso')
+                ->latest('started_at')
+                ->first();
+
+            $activePreventivePatrol = \App\Models\PreventivePatrol::with(['checkpoints'])
+                ->where('device_id', $currentDevice->id)
+                ->where('status', 'En Curso')
+                ->latest('started_at')
+                ->first();
         }
 
         return view('livewire.field-inspector-panel', [
@@ -208,6 +277,7 @@ class FieldInspectorPanel extends Component
             'currentDevice' => $currentDevice,
             'assignedProcedures' => $assignedProcedures,
             'assignedEventReports' => $assignedEventReports,
+            'activePreventivePatrol' => $activePreventivePatrol,
         ])->layout('layouts.app');
     }
 }
