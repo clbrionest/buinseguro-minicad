@@ -90,7 +90,7 @@
                 @endif
             </div>
 
-            {{-- BOTONES TÁCTILES DE ESTADO QAP (>= 44x44px) --}}
+            {{-- BOTONES TÁCTILES DE ESTADO (>= 44x44px) --}}
             <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Cambiar estado operativo de unidad">
                 @php
                     $statuses = [
@@ -107,7 +107,7 @@
                             :aria-pressed="{{ $currentBase === $stName ? 'true' : 'false' }}"
                             class="min-h-[44px] py-2.5 px-2.5 rounded-lg text-xs font-extrabold transition flex items-center justify-center gap-1.5 {{ $currentBase === $stName ? $cfg['active'] : 'bg-black/25 text-brand-white/85 hover:bg-white/15 border border-white/10' }}">
                         <i class="{{ $cfg['icon'] }}" aria-hidden="true"></i>
-                        <span>{{ $stName }}</span>
+                        <span>{{ str_replace(' (QAP)', '', $stName) }}</span>
                     </button>
                 @endforeach
             </div>

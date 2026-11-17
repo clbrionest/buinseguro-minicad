@@ -2,23 +2,27 @@
 
 namespace App\Livewire;
 
-use Livewire\Component;
-use Livewire\WithFileUploads;
 use App\Models\Device;
-use App\Models\Procedure;
-use App\Models\ProcedureLog;
+use App\Models\EventReport;
 use App\Models\Evidence;
 use App\Models\PatrolAssignment;
-use App\Models\EventReport;
+use App\Models\Procedure;
+use App\Models\ProcedureLog;
+use App\Models\SystemCatalogItem;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class FieldInspectorPanel extends Component
 {
     use WithFileUploads;
 
     public $selected_device_id = '';
+
     public $active_procedure_for_note = null;
+
     public $quick_note = '';
+
     public $quick_photo = null;
 
     public function mount()
@@ -27,7 +31,7 @@ class FieldInspectorPanel extends Component
 
         // Buscar si el usuario actual forma parte de una patrulla activa
         $assignment = PatrolAssignment::where('is_active', true)
-            ->whereHas('crew', fn($q) => $q->where('users.id', $user->id))
+            ->whereHas('crew', fn ($q) => $q->where('users.id', $user->id))
             ->latest()
             ->first();
 
@@ -43,17 +47,17 @@ class FieldInspectorPanel extends Component
 
     public function setDeviceStatus($status)
     {
-        if (!$this->selected_device_id) {
+        if (! $this->selected_device_id) {
             return;
         }
 
-        $allowed = \App\Models\SystemCatalogItem::namesFor('device_statuses', [
+        $allowed = SystemCatalogItem::namesFor('device_statuses', [
             'Disponible (QAP)',
             'En Colación',
             'Punto Fijo',
             'En Mantención',
         ]);
-        if (!in_array($status, $allowed)) {
+        if (! in_array($status, $allowed)) {
             return;
         }
 
@@ -61,12 +65,12 @@ class FieldInspectorPanel extends Component
             'operational_status' => $status,
         ]);
 
-        session()->flash('field_message', "Estado del móvil actualizado a: {$status}");
+        session()->flash('field_message', 'Estado del móvil actualizado a: '.str_replace(' (QAP)', '', $status));
     }
 
     public function updateDeviceGps($lat, $lng)
     {
-        if (!$this->selected_device_id || !$lat || !$lng) {
+        if (! $this->selected_device_id || ! $lat || ! $lng) {
             return;
         }
 
@@ -105,9 +109,9 @@ class FieldInspectorPanel extends Component
             ]);
         }
 
-        $distanceText = !is_null($distance)
+        $distanceText = ! is_null($distance)
             ? " (Distancia georreferenciada al punto: {$distance} m)."
-            : ($lat && $lng ? " (GPS: {$lat}, {$lng})." : " (Sin señal GPS disponible).");
+            : ($lat && $lng ? " (GPS: {$lat}, {$lng})." : ' (Sin señal GPS disponible).');
 
         ProcedureLog::create([
             'procedure_id' => $procedure->id,
@@ -194,7 +198,7 @@ class FieldInspectorPanel extends Component
             $assignedEventReports = EventReport::with(['event', 'sector'])
                 ->where('device_id', $currentDevice->id)
                 ->where('status', 'En Atención')
-                ->whereHas('event', fn($q) => $q->where('is_active', true))
+                ->whereHas('event', fn ($q) => $q->where('is_active', true))
                 ->orderBy('created_at', 'desc')
                 ->get();
         }

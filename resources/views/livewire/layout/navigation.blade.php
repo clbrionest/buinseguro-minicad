@@ -44,7 +44,8 @@ new class extends Component
                         </div>
                         <div class="leading-tight">
                             <span class="font-black text-sm tracking-wider text-brand-white block">BUIN SEGURO</span>
-                            <span class="text-[10px] text-brand-lime-light uppercase font-bold block">Central CAD</span>
+                            <span class="text-[10px] text-brand-lime-light uppercase font-bold block">MiniCAD</span>
+                            </span>
                         </div>
                     </a>
                 </div>
@@ -71,7 +72,7 @@ new class extends Component
                     <!-- 2. Mapa en Vivo (Directo) -->
                     <a href="{{ route('map.live') }}" class="{{ $navClass(request()->routeIs('map.live')) }}">
                         <i class="fa-solid fa-map-location-dot text-[11px]" aria-hidden="true"></i>
-                        <span>Mapa Vivo</span>
+                        <span>Mapa Operacional</span>
                     </a>
 
                     <!-- 3. Entrega de Turno (Directo para Operadores/Supervisores/Admin) -->
@@ -135,7 +136,7 @@ new class extends Component
                         </div>
                     </div>
 
-                    <!-- 5. Dropdown: Reportes y PBX -->
+                    <!-- 5. Dropdown: Reportes e Historial Telefónico -->
                     @hasanyrole('Administrador|Supervisor|Operador')
                     <div class="relative" x-data="{ ddRep: false }" @click.outside="ddRep = false">
                         <button type="button"
@@ -143,7 +144,7 @@ new class extends Component
                                 :aria-expanded="ddRep"
                                 class="{{ $navClass($reportsActive) }}">
                             <i class="fa-solid fa-chart-pie text-[11px]" aria-hidden="true"></i>
-                            <span>Reportes y PBX</span>
+                            <span>Reportes</span>
                             <i class="fa-solid fa-chevron-down text-[9px] opacity-75 transition-transform" :class="ddRep ? 'rotate-180' : ''" aria-hidden="true"></i>
                         </button>
 
@@ -160,7 +161,7 @@ new class extends Component
                                class="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold {{ request()->routeIs('reports.calls') ? 'bg-brand-cobalt/10 text-brand-cobalt dark:bg-brand-cobalt-mid/20 dark:text-brand-cobalt-light' : 'text-ui-fg hover:bg-ui-subtle' }}">
                                 <i class="fa-solid fa-phone-volume w-4 text-center text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i>
                                 <div>
-                                    <div class="font-bold">Historial Llamadas PBX</div>
+                                    <div class="font-bold">Historial Llamadas</div>
                                     <div class="text-[10px] text-ui-muted">Registro telefónico y audios</div>
                                 </div>
                             </a>
@@ -221,7 +222,7 @@ new class extends Component
                                class="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold {{ request()->routeIs('landmarks.manage') ? 'bg-brand-cobalt/10 text-brand-cobalt dark:bg-brand-cobalt-mid/20 dark:text-brand-cobalt-light' : 'text-ui-fg hover:bg-ui-subtle' }}">
                                 <i class="fa-solid fa-location-dot w-4 text-center text-priority-critical" aria-hidden="true"></i>
                                 <div>
-                                    <div class="font-bold">Hitos Geográficos (POI)</div>
+                                    <div class="font-bold">Hitos y Referencias</div>
                                     <div class="text-[10px] text-ui-muted">Puntos de referencia en mapa</div>
                                 </div>
                             </a>
@@ -240,7 +241,7 @@ new class extends Component
                                 <i class="fa-solid fa-shield-halved w-4 text-center text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i>
                                 <div>
                                     <div class="font-bold">Auditoría del Sistema</div>
-                                    <div class="text-[10px] text-ui-muted">Trazabilidad y seguridad CAD</div>
+                                    <div class="text-[10px] text-ui-muted">Trazabilidad</div>
                                 </div>
                             </a>
                         </div>
@@ -260,7 +261,7 @@ new class extends Component
                     <span x-text="clock" class="font-mono cad-tabular text-xs font-black text-brand-white tracking-wider"></span>
                 </div>
 
-                <!-- PBX Extension Badge -->
+                <!-- Extension Badge -->
                 @if(auth()->user()->extension)
                     <span class="bg-white/10 border border-white/15 text-brand-white text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 font-mono cad-tabular">
                         <i class="fa-solid fa-headset text-brand-lime text-[11px]" aria-hidden="true"></i>
@@ -327,7 +328,7 @@ new class extends Component
                 <i class="fa-solid fa-satellite-dish w-4 text-center" aria-hidden="true"></i> Sala de Despacho
             </a>
             <a href="{{ route('map.live') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('map.live') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
-                <i class="fa-solid fa-map-location-dot w-4 text-center" aria-hidden="true"></i> Mapa en Vivo
+                <i class="fa-solid fa-map-location-dot w-4 text-center" aria-hidden="true"></i> Mapa Operacional
             </a>
             @hasanyrole('Administrador|Supervisor|Operador')
             <a href="{{ route('shifts.manage') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('shifts.manage') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
@@ -342,7 +343,7 @@ new class extends Component
                 <i class="fa-solid fa-cloud-showers-heavy w-4 text-center" aria-hidden="true"></i> Contingencias y Eventos
             </a>
             <a href="{{ route('reports.calls') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('reports.calls') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
-                <i class="fa-solid fa-phone-volume w-4 text-center" aria-hidden="true"></i> Llamadas PBX
+                <i class="fa-solid fa-phone-volume w-4 text-center" aria-hidden="true"></i> Llamadas
             </a>
             @endhasanyrole
             @hasanyrole('Administrador|Supervisor')
@@ -358,7 +359,7 @@ new class extends Component
                 <i class="fa-solid fa-tags w-4 text-center" aria-hidden="true"></i> Mantenedores
             </a>
             <a href="{{ route('landmarks.manage') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('landmarks.manage') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
-                <i class="fa-solid fa-location-dot w-4 text-center" aria-hidden="true"></i> Hitos (POI)
+                <i class="fa-solid fa-location-dot w-4 text-center" aria-hidden="true"></i> Hitos
             </a>
             <a href="{{ route('users.manage') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('users.manage') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
                 <i class="fa-solid fa-users-gear w-4 text-center" aria-hidden="true"></i> Usuarios

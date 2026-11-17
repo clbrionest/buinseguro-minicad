@@ -345,7 +345,7 @@
             @if($procedure->call && $procedure->call->recording_path)
                 <div class="p-4 bg-slate-900 rounded-xl shadow-inner">
                     <label class="text-xs text-emerald-400 font-bold uppercase mb-2 block">
-                        🎙️ Grabación Telefónica PBX (Issabel)
+                        🎙️ Grabación Telefónica
                     </label>
                     <audio controls class="w-full">
                         <source src="{{ route('calls.play', $procedure->call->id) }}" type="audio/wav">

@@ -118,7 +118,7 @@
                                         </div>
                                     </td>
                                     <td width="25%" style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; text-align: center;">
-                                        <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #334155;">Llamadas PBX</div>
+                                        <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #334155;">Llamadas Telefónicas</div>
                                         <div style="font-size: 26px; font-weight: 900; color: #0f172a; margin-top: 4px;">{{ $stats['total_calls'] ?? 0 }}</div>
                                         <div style="font-size: 11px; color: #64748b;">Pitanzas: {{ $stats['prank_calls'] ?? 0 }}</div>
                                     </td>

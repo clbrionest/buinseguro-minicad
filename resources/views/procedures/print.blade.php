@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ficha Oficial Procedimiento #{{ $procedure->id }} - BuinSeguro</title>
+    <title>Ficha Procedimiento #{{ $procedure->id }} - BuinSeguro</title>
     @vite(['resources/css/app.css'])
     <style>
         @media print {
@@ -22,7 +22,7 @@
                 ← Volver al Procedimiento #{{ $procedure->id }}
             </a>
             <span class="text-gray-600">|</span>
-            <span class="text-xs text-gray-300">Vista Previa de Ficha Oficial para Fiscalía / Carabineros / Alcaldía</span>
+            <span class="text-xs text-gray-300">Vista Previa de Ficha Oficial para Reporte</span>
         </div>
         <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs py-2 px-4 rounded shadow flex items-center gap-1.5">
             🖨️ Imprimir / Guardar como PDF
@@ -65,7 +65,7 @@
                 </span>
             </div>
             <div>
-                <span class="block text-gray-500 uppercase font-bold">Llegada Lugar (SLA)</span>
+                <span class="block text-gray-500 uppercase font-bold">Llegada Lugar</span>
                 <span class="text-sm font-black text-gray-900">
                     {{ $procedure->arrived_at ? $procedure->arrived_at->format('H:i:s') . ' (' . $procedure->arrival_minutes . ' min)' : ($procedure->mobile_arrived_at ? $procedure->mobile_arrived_at->format('H:i:s') . ' (GPS)' : 'Pendiente / Sin registro') }}
                 </span>
@@ -216,7 +216,7 @@
         <div class="mt-14 pt-8 border-t border-gray-300 grid grid-cols-2 gap-12 text-center text-xs text-gray-600">
             <div>
                 <div class="border-t border-gray-500 w-56 mx-auto pt-2 font-bold text-gray-800">
-                    Firma Operador(a) Central / Despacho
+                    Firma Operador(a)
                 </div>
                 <p>{{ $procedure->user->name ?? 'Central BuinSeguro' }}</p>
             </div>

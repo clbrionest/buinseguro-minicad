@@ -96,19 +96,19 @@
                         <tbody class="divide-y divide-slate-100 text-slate-700">
                             <tr>
                                 <td class="py-2.5 px-3 font-black text-blue-700 whitespace-nowrap">Administrador</td>
-                                <td class="py-2.5 px-3">Acceso total a todos los sectores, escucha de todas las grabaciones PBX, mantenedores/catálogos completos, gestión de usuarios/anexos, hitos y auditoría de seguridad.</td>
+                                <td class="py-2.5 px-3">Acceso total a todos los sectores, escucha de todas las grabaciones telefónicas, mantenedores/catálogos completos, gestión de usuarios/anexos, hitos y auditoría de seguridad.</td>
                             </tr>
                             <tr>
                                 <td class="py-2.5 px-3 font-black text-indigo-700 whitespace-nowrap">Supervisor</td>
-                                <td class="py-2.5 px-3">Visibilidad de todos los sectores, escucha de todas las grabaciones PBX, armado de turnos de patrullas y de operadores, estadísticas/heatmap y auditoría.</td>
+                                <td class="py-2.5 px-3">Visibilidad de todos los sectores, escucha de todas las grabaciones telefónicas, armado de turnos de patrullas y de operadores, estadísticas/heatmap y auditoría.</td>
                             </tr>
                             <tr>
                                 <td class="py-2.5 px-3 font-black text-emerald-700 whitespace-nowrap">Operador</td>
-                                <td class="py-2.5 px-3">Despacho y monitoreo de sus sectores asignados, historial de llamadas PBX (con reproducción de audio de su propio anexo), turnos de sala y contingencias.</td>
+                                <td class="py-2.5 px-3">Despacho y monitoreo de sus sectores asignados, historial de llamadas (con reproducción de audio de su propio anexo), turnos de sala y contingencias.</td>
                             </tr>
                             <tr>
                                 <td class="py-2.5 px-3 font-black text-amber-700 whitespace-nowrap">Inspector</td>
-                                <td class="py-2.5 px-3">Panel móvil en terreno (<code>/terreno</code>), reporte de ubicación y llegada GPS, cambio de estado QAP del móvil, subida de fotografías de evidencia y bitácora.</td>
+                                <td class="py-2.5 px-3">Panel móvil en terreno (<code>/terreno</code>), reporte de ubicación y llegada GPS, cambio de estado operativo del móvil, subida de fotografías de evidencia y bitácora.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -127,7 +127,7 @@
                     <div class="bg-slate-50 px-3 py-1.5 rounded border border-slate-200"><strong>1. Sectores / Jurisdicciones:</strong> Cuadrantes comunales de Buin.</div>
                     <div class="bg-slate-50 px-3 py-1.5 rounded border border-slate-200"><strong>2. Tipos de Procedimiento (+ Metadatos):</strong> Tipificaciones y sus campos meta personalizados.</div>
                     <div class="bg-slate-50 px-3 py-1.5 rounded border border-slate-200"><strong>3. Horarios y Puestos de Turno (Sala y Patrullas):</strong> Bloques horarios rotativos y cuotas de operadores telefónicos y de cámaras.</div>
-                    <div class="bg-slate-50 px-3 py-1.5 rounded border border-slate-200"><strong>4. Tipificaciones PBX, Bitácora y Estados QAP:</strong> Motivos de llamadas, acciones de bitácora y estados de móviles.</div>
+                    <div class="bg-slate-50 px-3 py-1.5 rounded border border-slate-200"><strong>4. Tipificaciones de Llamadas, Bitácora y Estados de Móviles:</strong> Motivos de llamadas, acciones de bitácora y estados de móviles.</div>
                 </div>
             </div>
         </div>

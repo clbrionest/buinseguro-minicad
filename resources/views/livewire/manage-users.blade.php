@@ -32,7 +32,7 @@
                         @error('email') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Anexo Telefónico (PBX)</label>
+                        <label class="block text-sm font-medium text-gray-700">Anexo Telefónico</label>
                         <input type="text" wire:model="extension" placeholder="Ej: 101" class="mt-1 w-full rounded-md border-gray-300 shadow-sm">
                         @error('extension') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                     </div>
@@ -84,7 +84,7 @@
             <thead>
                 <tr class="bg-gray-100 text-gray-600 text-sm leading-normal">
                     <th class="py-3 px-6 text-left">Usuario</th>
-                    <th class="py-3 px-6 text-center">Anexo PBX</th>
+                    <th class="py-3 px-6 text-center">Anexo Telefónico</th>
                     <th class="py-3 px-6 text-left">Rol</th>
                     <th class="py-3 px-6 text-left">Sectores Asignados</th>
                     <th class="py-3 px-6 text-center">Acciones</th>

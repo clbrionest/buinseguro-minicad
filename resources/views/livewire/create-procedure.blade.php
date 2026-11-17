@@ -53,7 +53,7 @@
                                     wire:model="origin_id"
                                     :options="$origins"
                                     placeholder="Seleccione el origen..."
-                                    searchPlaceholder="Buscar origen (ej: 1452, cámara, whatsapp)..."
+                                    searchPlaceholder="Buscar origen (ej: 1426, cámara, whatsapp)..."
                                 />
                                 @error('origin_id') <span class="text-red-500 text-xs block mt-1">Seleccione el origen.</span> @enderror
                             </div>
@@ -224,7 +224,7 @@
                                             {{ $callerStats['total_cases'] }} casos previos
                                         </span>
                                         <span class="text-xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
-                                            {{ $callerStats['total_calls'] }} llamadas PBX
+                                            {{ $callerStats['total_calls'] }} llamadas registradas
                                         </span>
                                         @if($callerStats['pranks'] > 0)
                                             <span class="text-xs font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 animate-pulse">
@@ -319,7 +319,7 @@
                                 wire:model="device_id"
                                 :options="$deviceOptions"
                                 placeholder="⏳ Sin asignar (Dejar Pendiente en Sala)"
-                                searchPlaceholder="Buscar móvil o estado (ej: Móvil 15, Moto, QAP)..."
+                                searchPlaceholder="Buscar móvil o estado (ej: Móvil 15, Moto, Disponible)..."
                             />
 
                             @if($is_preventive)
