@@ -10,6 +10,7 @@ use App\Livewire\ManageOperatorShifts;
 use App\Mail\ShiftClosedReportMail;
 use App\Models\AuditLog;
 use App\Models\Call;
+use App\Models\Landmark;
 use App\Models\OperatorShift;
 use App\Models\Origin;
 use App\Models\Procedure;
@@ -744,5 +745,60 @@ class CadSecurityAndAuditTest extends TestCase
         $this->assertNotNull($newProcedure);
         $this->assertSame($call->id, $newProcedure->call_id);
         $this->assertSame($newProcedure->id, $call->fresh()->procedure_id);
+    }
+
+    public function test_create_procedure_landmark_and_manual_address_mutual_exclusion_and_minimap_refinement(): void
+    {
+        $operator = User::factory()->create();
+        $operator->assignRole('Operador');
+
+        $sector = Sector::create(['name' => 'Sector Centro']);
+        $operator->sectors()->attach($sector->id);
+        $type = ProcedureType::create(['name' => 'Incivilidades']);
+        $origin = Origin::create(['name' => '1426']);
+
+        $landmark = Landmark::create([
+            'name' => 'Plaza de Armas de Buin',
+            'address' => 'Carlos Condell 300, Buin',
+            'latitude' => -33.7320000,
+            'longitude' => -70.7420000,
+        ]);
+
+        // 1. Seleccionar un Hito bloquea los campos de dirección manual y predomina su dirección
+        $component = Livewire::actingAs($operator)
+            ->test(CreateProcedure::class)
+            ->call('openModal')
+            ->set('landmark_id', $landmark->id)
+            ->assertSet('exact_address', 'Plaza de Armas de Buin (Carlos Condell 300, Buin)')
+            ->assertSet('formatted_address', 'Carlos Condell 300, Buin')
+            ->assertDispatched('location-updated')
+            ->assertSee('Campos bloqueados: predomina la dirección del Hito seleccionado')
+            // Intentar sobreescribir exact_address mientras hay un hito seleccionado mantiene la dirección del hito
+            ->set('exact_address', 'Otra calle cualquiera 999')
+            ->assertSet('exact_address', 'Plaza de Armas de Buin (Carlos Condell 300, Buin)');
+
+        // 2. Limpiar selección de hito e ingresar dirección manual deshabilita el selector de Hito y geocodifica
+        $component->call('clearLocationSelection')
+            ->assertSet('landmark_id', '')
+            ->assertSet('exact_address', '')
+            ->assertDispatched('location-cleared')
+            ->set('exact_address', 'Arturo Prat 150')
+            ->assertDispatched('geocode-address', address: 'Arturo Prat 150')
+            ->assertSee('Deshabilitado por dirección')
+            // 3. El operador afina las coordenadas en el mini-mapa y guarda el procedimiento
+            ->call('setCoordinates', -33.7334567, -70.7412345)
+            ->assertSet('latitude', -33.7334567)
+            ->assertSet('longitude', -70.7412345)
+            ->set('sector_id', $sector->id)
+            ->set('procedure_type_id', $type->id)
+            ->set('origin_id', $origin->id)
+            ->call('save')
+            ->assertDispatched('procedure-created');
+
+        $savedProcedure = Procedure::where('exact_address', 'Arturo Prat 150')->first();
+        $this->assertNotNull($savedProcedure);
+        $this->assertEquals(-33.7334567, (float) $savedProcedure->latitude);
+        $this->assertEquals(-70.7412345, (float) $savedProcedure->longitude);
+        $this->assertNull($savedProcedure->landmark_id);
     }
 }

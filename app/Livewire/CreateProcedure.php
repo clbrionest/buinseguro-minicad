@@ -126,15 +126,58 @@ class CreateProcedure extends Component
     {
         if ($value) {
             $landmark = Landmark::find($value);
-            $this->exact_address = $landmark->name.' ('.$landmark->address.')';
-            $this->formatted_address = $landmark->address;
-            $this->latitude = $landmark->latitude;
-            $this->longitude = $landmark->longitude;
+            if ($landmark) {
+                $this->exact_address = $landmark->name.' ('.$landmark->address.')';
+                $this->formatted_address = $landmark->address;
+                $this->address_reference = '';
+                $this->latitude = $landmark->latitude;
+                $this->longitude = $landmark->longitude;
 
-            $this->dispatch('location-updated', lat: $this->latitude, lng: $this->longitude);
+                $this->dispatch('location-updated', lat: $this->latitude, lng: $this->longitude, label: $this->exact_address);
+            }
         } else {
-            $this->reset(['exact_address', 'formatted_address', 'latitude', 'longitude']);
+            $this->reset(['exact_address', 'formatted_address', 'address_reference', 'latitude', 'longitude']);
+            $this->dispatch('location-cleared');
         }
+    }
+
+    public function updatedExactAddress($value): void
+    {
+        if (! empty($this->landmark_id)) {
+            $landmark = Landmark::find($this->landmark_id);
+            if ($landmark) {
+                $this->exact_address = $landmark->name.' ('.$landmark->address.')';
+            }
+
+            return;
+        }
+
+        $trimmed = trim((string) $value);
+        if ($trimmed === '') {
+            $this->reset(['formatted_address', 'latitude', 'longitude']);
+            $this->dispatch('location-cleared');
+        } elseif (mb_strlen($trimmed) >= 3) {
+            $this->dispatch('geocode-address', address: $trimmed);
+        }
+    }
+
+    public function clearLocationSelection(): void
+    {
+        $this->reset([
+            'landmark_id',
+            'formatted_address',
+            'exact_address',
+            'address_reference',
+            'latitude',
+            'longitude',
+        ]);
+        $this->dispatch('location-cleared');
+    }
+
+    public function setCoordinates($lat, $lng): void
+    {
+        $this->latitude = is_numeric($lat) ? round((float) $lat, 7) : '';
+        $this->longitude = is_numeric($lng) ? round((float) $lng, 7) : '';
     }
 
     public function updatedCallerPhone($value)

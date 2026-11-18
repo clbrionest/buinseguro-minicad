@@ -80,10 +80,180 @@
                         </div>
 
                         <!-- 2. Ubicación Georreferenciada -->
-                        <div class="lg:col-span-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <h4 class="font-black text-slate-800 text-sm mb-3 border-b border-slate-200 pb-1.5">
-                                📍 2. Ubicación Georreferenciada
-                            </h4>
+                        @php
+                            $hasLandmark = ! empty($landmark_id);
+                            $hasManualAddress = ! $hasLandmark && (trim((string) $exact_address) !== '' || trim((string) $address_reference) !== '');
+                        @endphp
+                        <div class="lg:col-span-4 bg-slate-50 p-4 rounded-xl border border-slate-200"
+                             x-data="{
+                                 map: null,
+                                 marker: null,
+                                 geocoder: null,
+                                 isGeocoding: false,
+                                 skipNextGeocode: false,
+                                 buinCenter: { lat: -33.7320, lng: -70.7420 },
+
+                                 initLocationTools() {
+                                     if (typeof google === 'undefined' || !google.maps) return;
+
+                                     // 1. Inicializar Mini Mapa
+                                     const mapEl = this.$refs.miniMapCanvas;
+                                     if (mapEl && !this.map) {
+                                         const initLat = parseFloat($wire.latitude);
+                                         const initLng = parseFloat($wire.longitude);
+                                         const hasInitialCoords = !isNaN(initLat) && !isNaN(initLng);
+                                         const startCenter = hasInitialCoords ? { lat: initLat, lng: initLng } : this.buinCenter;
+
+                                         this.map = new google.maps.Map(mapEl, {
+                                             zoom: hasInitialCoords ? 17 : 14,
+                                             center: startCenter,
+                                             mapTypeControl: false,
+                                             streetViewControl: false,
+                                             fullscreenControl: false,
+                                             zoomControl: true,
+                                         });
+
+                                         this.marker = new google.maps.Marker({
+                                             map: this.map,
+                                             position: startCenter,
+                                             draggable: true,
+                                             visible: hasInitialCoords,
+                                             title: 'Arrastre para afinar la ubicación exacta del procedimiento',
+                                         });
+
+                                         if (google.maps.Geocoder) {
+                                             this.geocoder = new google.maps.Geocoder();
+                                         }
+
+                                         // Clic en el mini mapa para fijar/afinar el punto
+                                         this.map.addListener('click', (e) => {
+                                             this.placeMarkerAndSync(e.latLng.lat(), e.latLng.lng(), false);
+                                         });
+
+                                         // Arrastrar marcador para afinar ubicación
+                                         this.marker.addListener('dragend', (e) => {
+                                             this.placeMarkerAndSync(e.latLng.lat(), e.latLng.lng(), false);
+                                         });
+                                     }
+
+                                     // 2. Inicializar Autocomplete de Google Places
+                                     const input = this.$refs.searchInput;
+                                     if (input && google.maps.places && !input.dataset.autocompleteBound) {
+                                         input.dataset.autocompleteBound = 'true';
+                                         const options = {
+                                             componentRestrictions: { country: 'cl' },
+                                             fields: ['geometry', 'formatted_address', 'name'],
+                                         };
+                                         const autocomplete = new google.maps.places.Autocomplete(input, options);
+                                         autocomplete.addListener('place_changed', () => {
+                                             if ($wire.landmark_id) return;
+                                             const place = autocomplete.getPlace();
+                                             if (!place.geometry || !place.geometry.location) return;
+                                             const lat = place.geometry.location.lat();
+                                             const lng = place.geometry.location.lng();
+                                             this.skipNextGeocode = true;
+                                             this.placeMarkerAndSync(lat, lng, true);
+                                             $wire.set('formatted_address', place.formatted_address || '');
+                                             $wire.set('exact_address', place.name ? (place.name + ', ' + (place.formatted_address || '')) : (place.formatted_address || ''));
+                                         });
+                                     }
+                                 },
+
+                                 placeMarkerAndSync(lat, lng, panAndZoom = true) {
+                                     const numLat = parseFloat(lat);
+                                     const numLng = parseFloat(lng);
+                                     if (isNaN(numLat) || isNaN(numLng)) return;
+
+                                     if (this.map && this.marker) {
+                                         const pos = { lat: numLat, lng: numLng };
+                                         this.marker.setPosition(pos);
+                                         this.marker.setVisible(true);
+                                         if (panAndZoom) {
+                                             this.map.panTo(pos);
+                                             this.map.setZoom(17);
+                                         }
+                                     }
+                                     $wire.setCoordinates(numLat, numLng);
+                                 },
+
+                                 moveToCoordinates(lat, lng) {
+                                     const numLat = parseFloat(lat);
+                                     const numLng = parseFloat(lng);
+                                     if (isNaN(numLat) || isNaN(numLng) || !this.map || !this.marker) return;
+                                     const pos = { lat: numLat, lng: numLng };
+                                     this.marker.setPosition(pos);
+                                     this.marker.setVisible(true);
+                                     this.map.panTo(pos);
+                                     this.map.setZoom(17);
+                                 },
+
+                                 resetMapToBuin() {
+                                     if (this.$refs.searchInput) {
+                                         this.$refs.searchInput.value = '';
+                                     }
+                                     if (this.map && this.marker) {
+                                         this.marker.setVisible(false);
+                                         this.map.panTo(this.buinCenter);
+                                         this.map.setZoom(14);
+                                     }
+                                 },
+
+                                 geocodeText(rawAddress) {
+                                     if (this.skipNextGeocode) {
+                                         this.skipNextGeocode = false;
+                                         return;
+                                     }
+                                     const query = String(rawAddress || '').trim();
+                                     if (query.length < 3) return;
+
+                                     const searchQuery = query.toLowerCase().includes('buin')
+                                         ? query + ', Chile'
+                                         : query + ', Buin, Región Metropolitana, Chile';
+
+                                     this.isGeocoding = true;
+
+                                     const fallbackNominatim = () => {
+                                         fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=cl&q=' + encodeURIComponent(searchQuery))
+                                             .then(r => r.json())
+                                             .then(results => {
+                                                 this.isGeocoding = false;
+                                                 if (Array.isArray(results) && results.length > 0) {
+                                                     this.placeMarkerAndSync(parseFloat(results[0].lat), parseFloat(results[0].lon), true);
+                                                 }
+                                             })
+                                             .catch(() => {
+                                                 this.isGeocoding = false;
+                                             });
+                                     };
+
+                                     if (this.geocoder) {
+                                         this.geocoder.geocode({ address: searchQuery, region: 'CL' }, (results, status) => {
+                                             if (status === 'OK' && results && results[0] && results[0].geometry) {
+                                                 this.isGeocoding = false;
+                                                 const loc = results[0].geometry.location;
+                                                 this.placeMarkerAndSync(loc.lat(), loc.lng(), true);
+                                             } else {
+                                                 fallbackNominatim();
+                                             }
+                                         });
+                                     } else {
+                                         fallbackNominatim();
+                                     }
+                                 }
+                             }"
+                             x-init="$nextTick(() => initLocationTools())"
+                             @location-updated.window="if ($refs.searchInput) { $refs.searchInput.value = ''; } moveToCoordinates($event.detail.lat, $event.detail.lng)"
+                             @location-cleared.window="resetMapToBuin()"
+                             @geocode-address.window="geocodeText($event.detail.address)">
+
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-3 border-b border-slate-200 pb-1.5">
+                                <h4 class="font-black text-slate-800 text-sm">
+                                    📍 2. Ubicación Georreferenciada
+                                </h4>
+                                <span class="text-[11px] text-slate-500 font-semibold">
+                                    Seleccione un <strong>Hito Rápido</strong> (sin dirección clara) o ingrese la <strong>Dirección Exacta</strong>
+                                </span>
+                            </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                                 <div>
@@ -100,79 +270,145 @@
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
-                                        Punto de Interés (Hito Rápido)
-                                    </label>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="block text-xs font-bold uppercase text-slate-600">
+                                            Punto de Interés (Hito Rápido)
+                                        </label>
+                                        @if($hasManualAddress)
+                                            <span class="text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
+                                                🔒 Deshabilitado por dirección
+                                            </span>
+                                        @elseif($hasLandmark)
+                                            <button type="button"
+                                                    wire:click="clearLocationSelection"
+                                                    class="text-[10px] font-bold text-red-600 hover:text-red-800 hover:underline">
+                                                ✕ Quitar hito
+                                            </button>
+                                        @endif
+                                    </div>
                                     <x-searchable-select
+                                        wire:key="landmark-select-{{ $hasManualAddress ? 'locked' : 'free' }}"
                                         wire:model.live="landmark_id"
                                         :options="$landmarks"
-                                        placeholder="No es un hito conocido..."
+                                        :disabled="$hasManualAddress"
+                                        placeholder="{{ $hasManualAddress ? 'Deshabilitado al usar dirección exacta...' : 'Seleccione hito de referencia...' }}"
                                         searchPlaceholder="Buscar hito o punto de interés..."
                                     />
                                 </div>
                             </div>
 
-                            <!-- Google Maps -->
-                            <div class="mb-3"
-                                wire:ignore
-                                x-data="{
-                                    initAutocomplete() {
-                                        if(typeof google === 'undefined') return;
-                                        const input = this.$refs.searchInput;
-                                        const options = {
-                                            componentRestrictions: { country: 'cl' },
-                                            fields: ['geometry', 'formatted_address', 'name'],
-                                        };
-                                        const autocomplete = new google.maps.places.Autocomplete(input, options);
-                                        autocomplete.addListener('place_changed', () => {
-                                            const place = autocomplete.getPlace();
-                                            if (!place.geometry || !place.geometry.location) return;
-                                            $wire.set('latitude', place.geometry.location.lat());
-                                            $wire.set('longitude', place.geometry.location.lng());
-                                            $wire.set('formatted_address', place.formatted_address);
-                                            $wire.set('exact_address', place.name + ', ' + place.formatted_address);
-                                        });
-                                    }
-                                }"
-                                x-init="initAutocomplete()">
+                            {{-- Bloque de Campos de Dirección Exacta (se bloquea cuando se elige un Hito) --}}
+                            <div class="space-y-3 p-3 rounded-xl border transition {{ $hasLandmark ? 'bg-slate-100/90 border-slate-200 opacity-75' : 'bg-white/70 border-slate-200/80' }}">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-extrabold uppercase tracking-wider {{ $hasLandmark ? 'text-amber-700' : 'text-slate-600' }}">
+                                        @if($hasLandmark)
+                                            <i class="fa-solid fa-lock mr-1"></i> Campos bloqueados: predomina la dirección del Hito seleccionado
+                                        @else
+                                            <i class="fa-solid fa-map-pin mr-1 text-blue-600"></i> Ingreso por Dirección Exacta
+                                        @endif
+                                    </span>
 
-                                <label class="block text-xs font-bold uppercase text-slate-600">
-                                    Buscador de Calle / Intersección (Google Maps)
-                                </label>
-                                <input x-ref="searchInput"
-                                    type="text"
-                                    class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                    placeholder="Escribe calle, numeración o intersección en Buin...">
-                            </div>
-
-                            <!-- Dirección Exacta y Referencia -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
-                                        Dirección Exacta Confirmada *
-                                    </label>
-                                    <input type="text"
-                                        wire:model="exact_address"
-                                        placeholder="Se autocompleta o escriba manualmente..."
-                                        class="block w-full rounded-lg border-slate-300 shadow-sm bg-white text-sm font-medium">
-                                    @error('exact_address')
-                                        <span class="text-red-500 text-xs block mt-1">
-                                            La dirección es obligatoria.
-                                        </span>
-                                    @enderror
+                                    @if($hasManualAddress)
+                                        <button type="button"
+                                                wire:click="clearLocationSelection"
+                                                class="text-[11px] font-bold text-slate-500 hover:text-red-600 transition flex items-center gap-1">
+                                            <i class="fa-solid fa-eraser text-[10px]"></i>
+                                            <span>Limpiar dirección</span>
+                                        </button>
+                                    @endif
                                 </div>
 
+                                <!-- Buscador Google Maps -->
                                 <div>
-                                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
-                                        Conjunto Habitacional / Villa / Referencia
+                                    <label class="block text-xs font-bold uppercase text-slate-600">
+                                        Buscador de Calle / Intersección (Google Maps)
                                     </label>
-                                    <x-searchable-select
-                                        wire:model="address_reference"
-                                        :options="$housingComplexes ?? []"
-                                        :allowCustom="true"
-                                        placeholder="Buscar Villa / Conjunto o escribir referencia..."
-                                        searchPlaceholder="Digite nombre de Villa, Condominio o referencia libre..."
-                                    />
+                                    <div wire:ignore class="mt-1">
+                                        <input x-ref="searchInput"
+                                            type="text"
+                                            :disabled="$wire.landmark_id !== '' && $wire.landmark_id !== null"
+                                            :class="($wire.landmark_id !== '' && $wire.landmark_id !== null) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-white'"
+                                            class="block w-full rounded-lg border-slate-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm transition"
+                                            placeholder="Escribe calle, numeración o intersección en Buin...">
+                                    </div>
+                                </div>
+
+                                <!-- Dirección Exacta y Referencia -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
+                                            Dirección Exacta Confirmada *
+                                        </label>
+                                        <div class="flex gap-1.5">
+                                            <input type="text"
+                                                wire:model.live.debounce.500ms="exact_address"
+                                                @disabled($hasLandmark)
+                                                @readonly($hasLandmark)
+                                                placeholder="Se autocompleta o escriba calle y número..."
+                                                class="block w-full rounded-lg border-slate-300 shadow-sm text-sm font-medium {{ $hasLandmark ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white' }}">
+                                            @if(!$hasLandmark)
+                                                <button type="button"
+                                                        @click="geocodeText($wire.exact_address || $refs.searchInput?.value)"
+                                                        title="Ubicar dirección en el mini mapa"
+                                                        class="shrink-0 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition flex items-center gap-1">
+                                                    <i class="fa-solid fa-magnifying-glass-location" x-show="!isGeocoding"></i>
+                                                    <i class="fa-solid fa-circle-notch fa-spin" x-show="isGeocoding" style="display: none;"></i>
+                                                </button>
+                                            @endif
+                                        </div>
+                                        @error('exact_address')
+                                            <span class="text-red-500 text-xs block mt-1">
+                                                La dirección es obligatoria.
+                                            </span>
+                                        @enderror
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold uppercase text-slate-600 mb-1">
+                                            Conjunto Habitacional / Villa / Referencia
+                                        </label>
+                                        <x-searchable-select
+                                            wire:key="address-ref-select-{{ $hasLandmark ? 'locked' : 'free' }}"
+                                            wire:model.live="address_reference"
+                                            :options="$housingComplexes ?? []"
+                                            :allowCustom="true"
+                                            :disabled="$hasLandmark"
+                                            placeholder="{{ $hasLandmark ? 'Bloqueado por selección de hito...' : 'Buscar Villa / Conjunto o escribir referencia...' }}"
+                                            searchPlaceholder="Digite nombre de Villa, Condominio o referencia libre..."
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Mini Mapa Interactivo para afinar punto del procedimiento --}}
+                            <div class="mt-3 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <div>
+                                        <span class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                                            <i class="fa-solid fa-map-location-dot text-blue-600"></i>
+                                            <span>Mini Mapa de Georreferenciación (Referencia para Inspector)</span>
+                                        </span>
+                                        <p class="text-[11px] text-slate-500">
+                                            Haga clic en el mapa o arrastre el marcador para afinar el punto exacto donde debe acudir el móvil.
+                                        </p>
+                                    </div>
+
+                                    <div class="flex items-center gap-2">
+                                        @if($latitude && $longitude)
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                <i class="fa-solid fa-location-crosshairs text-emerald-600"></i>
+                                                {{ number_format((float) $latitude, 5) }}, {{ number_format((float) $longitude, 5) }}
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                                                Sin coordenadas fijadas
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <div wire:ignore class="w-full h-48 rounded-lg border border-slate-300 overflow-hidden shadow-inner relative bg-slate-100">
+                                    <div x-ref="miniMapCanvas" class="w-full h-full"></div>
                                 </div>
                             </div>
                         </div>

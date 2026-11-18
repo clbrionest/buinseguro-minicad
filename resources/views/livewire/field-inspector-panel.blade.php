@@ -209,12 +209,46 @@
                     </div>
 
                     <div class="bg-ui-subtle rounded-lg p-3 border border-ui-border text-sm space-y-1.5 mb-3">
-                        <p class="font-bold text-ui-fg flex items-start gap-1.5">
-                            <i class="fa-solid fa-location-dot text-brand-cobalt dark:text-brand-cobalt-mid mt-1" aria-hidden="true"></i>
-                            <span>{{ $proc->sector->name ?? 'Sector' }} — {{ $proc->exact_address }}</span>
-                        </p>
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                            <p class="font-bold text-ui-fg flex items-start gap-1.5">
+                                <i class="fa-solid fa-location-dot text-brand-cobalt dark:text-brand-cobalt-mid mt-1" aria-hidden="true"></i>
+                                <span>{{ $proc->sector->name ?? 'Sector' }} — {{ $proc->exact_address }}</span>
+                            </p>
+                            @if($proc->latitude && $proc->longitude)
+                                <span class="text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                    📍 GPS: {{ number_format((float) $proc->latitude, 5) }}, {{ number_format((float) $proc->longitude, 5) }}
+                                </span>
+                            @endif
+                        </div>
                         @if($proc->address_reference)
                             <p class="text-xs text-ui-muted"><strong>Ref:</strong> {{ $proc->address_reference }}</p>
+                        @endif
+                        @if($proc->latitude && $proc->longitude)
+                            <div wire:ignore
+                                 wire:key="inspector-proc-map-{{ $proc->id }}"
+                                 class="pt-1.5"
+                                 x-data="{
+                                     initFieldMap() {
+                                         if (typeof google === 'undefined' || !google.maps) return;
+                                         const pos = { lat: {{ (float) $proc->latitude }}, lng: {{ (float) $proc->longitude }} };
+                                         const map = new google.maps.Map(this.$refs.fieldMapCanvas, {
+                                             zoom: 17,
+                                             center: pos,
+                                             mapTypeControl: false,
+                                             streetViewControl: false,
+                                             fullscreenControl: false,
+                                             zoomControl: true,
+                                         });
+                                         new google.maps.Marker({
+                                             position: pos,
+                                             map: map,
+                                             title: @js($proc->exact_address),
+                                         });
+                                     }
+                                 }"
+                                 x-init="$nextTick(() => initFieldMap())">
+                                <div x-ref="fieldMapCanvas" class="w-full h-36 rounded-lg border border-ui-border shadow-inner"></div>
+                            </div>
                         @endif
                         @if($proc->caller_name || $proc->caller_phone)
                             <p class="text-xs text-ui-muted pt-1.5 border-t border-ui-border">
