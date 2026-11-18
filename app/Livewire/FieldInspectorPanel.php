@@ -92,39 +92,12 @@ class FieldInspectorPanel extends Component
             $activePatrol->recordGpsPoint($lat, $lng);
         }
 
-        // Registrar trazabilidad GPS en el patrullaje preventivo si está activo
-        $activePatrol = \App\Models\PreventivePatrol::where('device_id', $this->selected_device_id)
-            ->where('status', 'En Curso')
-            ->latest('started_at')
-            ->first();
-
-        if ($activePatrol) {
-            $activePatrol->recordGpsPoint($lat, $lng);
-        }
-
         session()->flash('field_message', 'Ubicación GPS del móvil actualizada en el Mapa Operativo.');
     }
 
     public function validatePatrolCheckpoint($checkpointId, $lat = null, $lng = null)
     {
         $checkpoint = PreventivePatrolCheckpoint::findOrFail($checkpointId);
-
-        $checkpoint->validateCheckpoint(
-            lat: $lat ? (float) $lat : null,
-            lng: $lng ? (float) $lng : null,
-            userId: Auth::id()
-        );
-
-        if ($lat && $lng) {
-            $checkpoint->preventivePatrol->recordGpsPoint($lat, $lng);
-        }
-
-        session()->flash('field_message', "Hito '{$checkpoint->name}' validado con éxito.");
-    }
-
-    public function validatePatrolCheckpoint($checkpointId, $lat = null, $lng = null)
-    {
-        $checkpoint = \App\Models\PreventivePatrolCheckpoint::findOrFail($checkpointId);
 
         $checkpoint->validateCheckpoint(
             lat: $lat ? (float) $lat : null,
@@ -260,12 +233,6 @@ class FieldInspectorPanel extends Component
                 ->get();
 
             $activePreventivePatrol = PreventivePatrol::with(['checkpoints'])
-                ->where('device_id', $currentDevice->id)
-                ->where('status', 'En Curso')
-                ->latest('started_at')
-                ->first();
-
-            $activePreventivePatrol = \App\Models\PreventivePatrol::with(['checkpoints'])
                 ->where('device_id', $currentDevice->id)
                 ->where('status', 'En Curso')
                 ->latest('started_at')

@@ -245,26 +245,6 @@ class CreateProcedure extends Component
         }
     }
 
-    #[On('openModalWithPatrol')]
-    public function openModalWithPatrol($patrolId)
-    {
-        $this->openModal();
-        $this->preventive_patrol_id = $patrolId;
-        $patrol = \App\Models\PreventivePatrol::find($patrolId);
-        if ($patrol) {
-            $this->preventivePatrolFolio = $patrol->folio;
-            $this->sector_id = $patrol->sector_id;
-            $this->device_id = $patrol->device_id;
-            $this->is_preventive = false;
-            if ($this->origins) {
-                $patrolOrigin = $this->origins->first(fn ($o) => str_contains(mb_strtolower($o->name), 'patrull') || str_contains(mb_strtolower($o->name), 'terreno'));
-                if ($patrolOrigin) {
-                    $this->origin_id = $patrolOrigin->id;
-                }
-            }
-        }
-    }
-
     public function closeModal()
     {
         $this->isOpen = false;
