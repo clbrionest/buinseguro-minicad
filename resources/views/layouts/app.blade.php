@@ -16,6 +16,15 @@
 
         <title>{{ config('app.name', 'BuinSeguro CAD') }}</title>
 
+        <!-- Configuración PWA (Consola Móvil Inspector & Tracking GPS) -->
+        <link rel="manifest" href="/manifest.webmanifest">
+        <meta name="theme-color" content="#0F172A">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="BuinSeguro GPS">
+        <link rel="apple-touch-icon" href="/icons/icon-192.svg">
+
         <!-- Script Anti-Destello (FOUC) — Buin Seguro CAD Design System v1.0 -->
         <script>
             (() => {
@@ -64,5 +73,13 @@
         <livewire:create-procedure :showButton="false" />
         <livewire:create-preventive-patrol :showButton="false" />
         <livewire:incoming-call-popup />
+
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js').catch(() => {});
+                });
+            }
+        </script>
     </body>
 </html>

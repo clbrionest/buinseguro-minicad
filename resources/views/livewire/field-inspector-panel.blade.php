@@ -2,6 +2,138 @@
      x-data="{
          sendingGps: false,
          arrivingCaseId: null,
+         addingPointGps: false,
+         autoGpsEnabled: true,
+         watchId: null,
+         heartbeatTimer: null,
+         lastLat: null,
+         lastLng: null,
+         lastSpeed: null,
+         gpsAccuracy: null,
+         lastSentTimestamp: 0,
+         wakeLock: null,
+         deferredPwaPrompt: null,
+         canInstallPwa: false,
+         isPwaStandalone: false,
+
+         init() {
+             this.isPwaStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+             window.addEventListener('beforeinstallprompt', (e) => {
+                 e.preventDefault();
+                 this.deferredPwaPrompt = e;
+                 this.canInstallPwa = true;
+             });
+
+             this.requestWakeLock();
+             document.addEventListener('visibilitychange', () => {
+                 if (document.visibilityState === 'visible') {
+                     this.requestWakeLock();
+                     if (this.autoGpsEnabled && this.lastLat && this.lastLng) {
+                         this.transmitSilentGps(this.lastLat, this.lastLng, this.lastSpeed);
+                     }
+                 }
+             });
+
+             if (this.autoGpsEnabled) {
+                 this.startLiveGps();
+             }
+         },
+
+         async requestWakeLock() {
+             try {
+                 if ('wakeLock' in navigator && !this.wakeLock) {
+                     this.wakeLock = await navigator.wakeLock.request('screen');
+                     this.wakeLock.addEventListener('release', () => {
+                         this.wakeLock = null;
+                     });
+                 }
+             } catch (_) {}
+         },
+
+         async installPwa() {
+             if (!this.deferredPwaPrompt) return;
+             this.deferredPwaPrompt.prompt();
+             const { outcome } = await this.deferredPwaPrompt.userChoice;
+             if (outcome === 'accepted') {
+                 this.canInstallPwa = false;
+                 this.deferredPwaPrompt = null;
+             }
+         },
+
+         haversineMeters(lat1, lon1, lat2, lon2) {
+             const R = 6371000;
+             const dLat = (lat2 - lat1) * Math.PI / 180;
+             const dLon = (lon2 - lon1) * Math.PI / 180;
+             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                       Math.sin(dLon / 2) * Math.sin(dLon / 2);
+             return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+         },
+
+         transmitSilentGps(lat, lng, speed = null) {
+             if (!this.autoGpsEnabled || !lat || !lng) return;
+             this.lastSentTimestamp = Date.now();
+             $wire.updateDeviceGps(lat, lng, speed, true);
+         },
+
+         startLiveGps() {
+             if (!navigator.geolocation) return;
+             this.stopLiveGps();
+
+             this.watchId = navigator.geolocation.watchPosition(
+                 (pos) => {
+                     const lat = pos.coords.latitude;
+                     const lng = pos.coords.longitude;
+                     const speed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : null;
+                     this.gpsAccuracy = pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null;
+
+                     const now = Date.now();
+                     const elapsed = now - this.lastSentTimestamp;
+                     const moved = (this.lastLat && this.lastLng)
+                         ? this.haversineMeters(this.lastLat, this.lastLng, lat, lng)
+                         : 999;
+
+                     this.lastLat = lat;
+                     this.lastLng = lng;
+                     this.lastSpeed = speed;
+
+                     // Transmitir inmediatamente en la primera lectura, si se desplazó >= 8m, o cada 12 segundos
+                     if (this.lastSentTimestamp === 0 || (moved >= 8 && elapsed >= 4000) || elapsed >= 12000) {
+                         this.transmitSilentGps(lat, lng, speed);
+                     }
+                 },
+                 () => {},
+                 { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+             );
+
+             this.heartbeatTimer = setInterval(() => {
+                 if (this.autoGpsEnabled && this.lastLat && this.lastLng && (Date.now() - this.lastSentTimestamp >= 12000)) {
+                     this.transmitSilentGps(this.lastLat, this.lastLng, this.lastSpeed);
+                 }
+             }, 12000);
+         },
+
+         stopLiveGps() {
+             if (this.watchId !== null && navigator.geolocation) {
+                 navigator.geolocation.clearWatch(this.watchId);
+                 this.watchId = null;
+             }
+             if (this.heartbeatTimer) {
+                 clearInterval(this.heartbeatTimer);
+                 this.heartbeatTimer = null;
+             }
+         },
+
+         toggleAutoGps() {
+             this.autoGpsEnabled = !this.autoGpsEnabled;
+             if (this.autoGpsEnabled) {
+                 this.startLiveGps();
+             } else {
+                 this.stopLiveGps();
+             }
+         },
+
          sendUnitGps() {
              if (!navigator.geolocation) {
                  alert('Este dispositivo no soporta geolocalización en el navegador.');
@@ -11,7 +143,11 @@
              navigator.geolocation.getCurrentPosition(
                  (pos) => {
                      this.sendingGps = false;
-                     $wire.updateDeviceGps(pos.coords.latitude, pos.coords.longitude);
+                     this.lastLat = pos.coords.latitude;
+                     this.lastLng = pos.coords.longitude;
+                     this.gpsAccuracy = pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null;
+                     this.lastSentTimestamp = Date.now();
+                     $wire.updateDeviceGps(pos.coords.latitude, pos.coords.longitude, pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : null, false);
                  },
                  (err) => {
                      this.sendingGps = false;
@@ -20,6 +156,34 @@
                  { enableHighAccuracy: true, timeout: 8000 }
              );
          },
+
+         submitAdditionalPatrolPoint() {
+             this.addingPointGps = true;
+             if (this.lastLat && this.lastLng) {
+                 this.addingPointGps = false;
+                 $wire.addAdditionalPatrolCheckpoint(this.lastLat, this.lastLng);
+                 return;
+             }
+             if (!navigator.geolocation) {
+                 this.addingPointGps = false;
+                 $wire.addAdditionalPatrolCheckpoint(null, null);
+                 return;
+             }
+             navigator.geolocation.getCurrentPosition(
+                 (pos) => {
+                     this.addingPointGps = false;
+                     this.lastLat = pos.coords.latitude;
+                     this.lastLng = pos.coords.longitude;
+                     $wire.addAdditionalPatrolCheckpoint(pos.coords.latitude, pos.coords.longitude);
+                 },
+                 () => {
+                     this.addingPointGps = false;
+                     $wire.addAdditionalPatrolCheckpoint(null, null);
+                 },
+                 { enableHighAccuracy: true, timeout: 6000 }
+             );
+         },
+
          markFieldArrival(caseId) {
              this.arrivingCaseId = caseId;
              if (!navigator.geolocation) {
@@ -41,18 +205,32 @@
          }
      }">
 
-    {{-- ENCABEZADO SHELL TERRENO (MOBILE-FIRST, CONTROLES TÁCTILES >= 44px) --}}
+    {{-- ENCABEZADO SHELL TERRENO (MOBILE-FIRST, PWA + CONTROLES TÁCTILES >= 44px) --}}
     <div class="bg-ui-sidebar text-brand-white rounded-xl shadow-md p-4 mb-4 border border-white/10">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
-                <span class="text-[11px] font-extrabold uppercase tracking-widest text-brand-lime-light block">SHELL TERRENO · INSPECTOR MUNICIPAL</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-brand-lime-light block">SHELL TERRENO · INSPECTOR MUNICIPAL</span>
+                    <span x-show="isPwaStandalone" style="display: none;" class="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-black px-2 py-0.2 rounded-full">
+                        PWA ACTIVA
+                    </span>
+                </div>
                 <h1 class="text-xl font-extrabold flex items-center gap-2">
                     <i class="fa-solid fa-car-on text-brand-lime" aria-hidden="true"></i>
                     <span>Consola Móvil Operativa</span>
                 </h1>
             </div>
 
-            <div class="w-full sm:w-auto flex items-center gap-2">
+            <div class="w-full sm:w-auto flex flex-wrap items-center gap-2">
+                <button type="button"
+                        x-show="canInstallPwa && !isPwaStandalone"
+                        style="display: none;"
+                        @click="installPwa()"
+                        class="min-h-[44px] bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-3 py-2 rounded-lg shadow-xs transition inline-flex items-center gap-1.5 border border-indigo-400/40">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                    <span>Instalar App (PWA)</span>
+                </button>
+
                 <label for="field-device-select" class="sr-only">Seleccionar unidad móvil</label>
                 <select id="field-device-select"
                         wire:model.live="selected_device_id"
@@ -71,6 +249,27 @@
                     <span x-show="sendingGps" style="display: none;"><i class="fa-solid fa-circle-notch fa-spin mr-1" aria-hidden="true"></i>GPS...</span>
                 </button>
             </div>
+        </div>
+
+        {{-- Barra de Telemetría GPS Continua en Tiempo Real --}}
+        <div class="mt-3 p-2.5 rounded-lg bg-black/30 border border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2">
+                <span class="relative flex h-2.5 w-2.5" x-show="autoGpsEnabled">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span class="h-2.5 w-2.5 rounded-full bg-slate-500" x-show="!autoGpsEnabled" style="display: none;"></span>
+                <span class="font-bold text-white" x-text="autoGpsEnabled ? 'Tracking GPS Continuo Activo (Tiempo Real)' : 'Tracking GPS Automático en Pausa'"></span>
+                <template x-if="lastLat && lastLng">
+                    <span class="text-[11px] font-mono text-brand-lime hidden sm:inline" x-text="`(${lastLat.toFixed(5)}, ${lastLng.toFixed(5)}${gpsAccuracy ? ' · ±' + gpsAccuracy + 'm' : ''})`"></span>
+                </template>
+            </div>
+            <button type="button"
+                    @click="toggleAutoGps()"
+                    class="px-2.5 py-1 rounded text-[11px] font-extrabold transition border"
+                    :class="autoGpsEnabled ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 hover:bg-emerald-500/30' : 'bg-white/10 text-slate-300 border-white/20 hover:bg-white/20'">
+                <span x-text="autoGpsEnabled ? 'Auto-GPS: ON' : 'Auto-GPS: OFF'"></span>
+            </button>
         </div>
 
         @if($currentDevice)
@@ -132,10 +331,16 @@
                     </a>
                     <span class="text-[11px] font-bold text-ui-muted">({{ $activePreventivePatrol->patrol_type }})</span>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <span class="text-xs font-mono font-bold text-ui-fg">
                         {{ $activePreventivePatrol->validated_checkpoints_count }}/{{ $activePreventivePatrol->total_checkpoints_count }} validados
                     </span>
+                    <button type="button"
+                            wire:click="toggleAddPatrolPointForm"
+                            class="bg-brand-cobalt hover:bg-brand-cobalt-deep text-white font-bold text-xs px-2.5 py-1 rounded-lg transition shadow-xs inline-flex items-center gap-1">
+                        <i class="fa-solid fa-location-plus text-[11px]"></i>
+                        <span>{{ $showAddPatrolPointForm ? 'Cancelar Punto' : '+ Agregar Punto' }}</span>
+                    </button>
                     <button type="button"
                             wire:click="$dispatch('openModalWithPatrol', { patrolId: {{ $activePreventivePatrol->id }} })"
                             class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-2.5 py-1 rounded-lg transition shadow-xs">
@@ -143,6 +348,75 @@
                     </button>
                 </div>
             </div>
+
+            {{-- Formulario para agregar punto adicional desde terreno --}}
+            @if($showAddPatrolPointForm)
+                <div class="mb-3 p-3.5 rounded-xl bg-ui-subtle border border-brand-cobalt/30 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-black uppercase text-brand-cobalt dark:text-brand-cobalt-light flex items-center gap-1.5">
+                            <i class="fa-solid fa-map-pin"></i>
+                            <span>Incorporar Punto / Hito Adicional en Terreno</span>
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                            <label class="block text-[11px] font-bold text-ui-muted uppercase mb-1">Hito Conocido (Opcional)</label>
+                            <select wire:model.live="new_patrol_landmark_id"
+                                    class="w-full rounded-lg border-ui-border bg-ui-card text-ui-fg text-xs py-2">
+                                <option value="">-- Punto personalizado --</option>
+                                @foreach($landmarks ?? [] as $lm)
+                                    <option value="{{ $lm->id }}">{{ $lm->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-ui-muted uppercase mb-1">Nombre del Punto *</label>
+                            <input type="text"
+                                   wire:model="new_patrol_point_name"
+                                   placeholder="Ej: Plaza Villa Estación, Cesfam..."
+                                   class="w-full rounded-lg border-ui-border bg-ui-card text-ui-fg text-xs py-2">
+                            @error('new_patrol_point_name')
+                                <span class="text-red-500 text-[11px] block mt-0.5">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-bold text-ui-muted uppercase mb-1">Dirección / Referencia</label>
+                            <input type="text"
+                                   wire:model="new_patrol_point_address"
+                                   placeholder="Ej: Calle o esquina de referencia..."
+                                   class="w-full rounded-lg border-ui-border bg-ui-card text-ui-fg text-xs py-2">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        <label class="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-ui-fg">
+                            <input type="checkbox"
+                                   wire:model="validate_new_point_immediately"
+                                   class="rounded border-ui-border text-emerald-600 focus:ring-emerald-500">
+                            <span>Validar paso inmediatamente con mi GPS actual</span>
+                        </label>
+
+                        <div class="flex items-center gap-2">
+                            <button type="button"
+                                    wire:click="toggleAddPatrolPointForm"
+                                    class="px-3 py-1.5 rounded-lg border border-ui-border bg-ui-card text-ui-fg text-xs font-bold">
+                                Cancelar
+                            </button>
+                            <button type="button"
+                                    @click="submitAdditionalPatrolPoint()"
+                                    :disabled="addingPointGps"
+                                    class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-extrabold shadow-xs inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-check" x-show="!addingPointGps"></i>
+                                <i class="fa-solid fa-circle-notch fa-spin" x-show="addingPointGps" style="display: none;"></i>
+                                <span>Guardar Punto Adicional</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            @endif
 
             @if($activePreventivePatrol->checkpoints->count() > 0)
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" x-data>
