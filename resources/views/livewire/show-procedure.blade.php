@@ -318,6 +318,17 @@
 
             <div class="bg-white shadow-sm rounded-xl p-5 border border-slate-200 border-t-4 border-t-indigo-600">
                 <h3 class="text-sm font-black uppercase tracking-wider text-slate-700 border-b pb-2 mb-3">👮 Tripulación a Cargo</h3>
+
+                @if(!empty($procedure->metadata['_assigned_inspector_name']))
+                    <div class="mb-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] font-black uppercase text-emerald-700 block">Inspector Asignado / Traspasado</span>
+                            <span class="text-xs font-extrabold text-emerald-950">{{ $procedure->metadata['_assigned_inspector_name'] }}</span>
+                        </div>
+                        <i class="fa-solid fa-user-shield text-emerald-600"></i>
+                    </div>
+                @endif
+
                 @if($procedure->patrolAssignment && $procedure->patrolAssignment->crew->count() > 0)
                     <div class="space-y-2">
                         @foreach($procedure->patrolAssignment->crew as $inspector)
@@ -337,6 +348,37 @@
                         Sin tripulación registrada para este móvil en el turno.
                     </div>
                 @endif
+
+                {{-- Opción de traspasar procedimiento a otro inspector (Administrador, Supervisor y Operador) --}}
+                @hasanyrole('Administrador|Supervisor|Operador')
+                    @if(!in_array($procedure->status, ['Cerrado', 'Cancelado']))
+                        <form wire:submit.prevent="transferProcedure" class="mt-4 pt-3 border-t border-slate-200 space-y-2.5">
+                            <label class="block text-xs font-black uppercase text-slate-700">
+                                🔄 Traspasar Procedimiento a Otro Inspector
+                            </label>
+                            <select wire:model="transfer_inspector_id" class="w-full rounded-lg border-slate-300 text-xs font-semibold">
+                                <option value="">-- Seleccione inspector destino --</option>
+                                @foreach($inspectors ?? [] as $insp)
+                                    <option value="{{ $insp['id'] }}">
+                                        {{ $insp['name'] }}{{ !empty($insp['unit']) ? ' (' . $insp['unit'] . ')' : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('transfer_inspector_id') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
+
+                            <input type="text"
+                                   wire:model="transfer_notes"
+                                   placeholder="Motivo o instrucción del traspaso (opcional)..."
+                                   class="w-full rounded-lg border-slate-300 text-xs">
+
+                            <button type="submit"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-3 rounded-lg text-xs shadow-xs transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-people-arrows"></i>
+                                <span>Traspasar Procedimiento</span>
+                            </button>
+                        </form>
+                    @endif
+                @endhasanyrole
             </div>
 
             @if(!$procedure->parent_id && !in_array($procedure->status, ['Cerrado', 'Cancelado']))
@@ -391,17 +433,20 @@
             </div>
             @endif
 
-            @if($procedure->call && $procedure->call->recording_path)
-                <div class="p-4 bg-slate-900 rounded-xl shadow-inner">
-                    <label class="text-xs text-emerald-400 font-bold uppercase mb-2 block">
-                        🎙️ Grabación Telefónica
-                    </label>
-                    <audio controls class="w-full">
-                        <source src="{{ route('calls.play', $procedure->call->id) }}" type="audio/wav">
-                        Tu navegador no soporta audio.
-                    </audio>
-                </div>
-            @endif
+            {{-- Grabación Telefónica (Oculta para el rol Inspector) --}}
+            @unless(auth()->user()?->isInspectorOnly())
+                @if($procedure->call && $procedure->call->recording_path)
+                    <div class="p-4 bg-slate-900 rounded-xl shadow-inner">
+                        <label class="text-xs text-emerald-400 font-bold uppercase mb-2 block">
+                            🎙️ Grabación Telefónica
+                        </label>
+                        <audio controls class="w-full">
+                            <source src="{{ route('calls.play', $procedure->call->id) }}" type="audio/wav">
+                            Tu navegador no soporta audio.
+                        </audio>
+                    </div>
+                @endif
+            @endunless
 
         </div>
 
@@ -454,27 +499,38 @@
                     @if(count($currentMetaFields) > 0)
                         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
                             @foreach($currentMetaFields as $field)
-                                <div class="bg-indigo-50/40 p-3 rounded-lg border border-indigo-100">
-                                    <label class="block text-xs font-bold text-indigo-950 mb-1">
-                                        {{ $field['label'] }}
-                                    </label>
+                                @php
+                                    $isFieldEditable = ($field['editable'] ?? true) && $procedure->status !== 'Cerrado';
+                                    $isLockedByOther = ($field['editable'] ?? true) === false;
+                                @endphp
+                                <div class="p-3 rounded-lg border {{ $isLockedByOther ? 'bg-slate-100 border-slate-200' : 'bg-indigo-50/40 border-indigo-100' }}">
+                                    <div class="flex items-center justify-between gap-1 mb-1">
+                                        <label class="block text-xs font-bold text-indigo-950">
+                                            {{ $field['label'] }}
+                                        </label>
+                                        @if($isLockedByOther)
+                                            <span class="text-[10px] font-semibold text-slate-500" title="Registrado por otro usuario; no editable">
+                                                🔒 Solo lectura
+                                            </span>
+                                        @endif
+                                    </div>
                                     @if(($field['type'] ?? 'text') === 'select')
-                                        <select wire:model="metaValues.{{ $field['key'] }}" class="w-full rounded-lg border-indigo-200 bg-white text-sm font-semibold" @disabled($procedure->status === 'Cerrado')>
+                                        <select wire:model="metaValues.{{ $field['key'] }}" class="w-full rounded-lg border-indigo-200 text-sm font-semibold {{ $isFieldEditable ? 'bg-white' : 'bg-slate-100 text-slate-500 cursor-not-allowed' }}" @disabled(!$isFieldEditable)>
                                             <option value="">Sin especificar...</option>
                                             @foreach(array_filter(array_map('trim', explode(',', $field['options'] ?? ''))) as $opt)
                                                 <option value="{{ $opt }}">{{ $opt }}</option>
                                             @endforeach
                                         </select>
                                     @elseif(($field['type'] ?? 'text') === 'boolean')
-                                        <select wire:model="metaValues.{{ $field['key'] }}" class="w-full rounded-lg border-indigo-200 bg-white text-sm font-semibold" @disabled($procedure->status === 'Cerrado')>
+                                        <select wire:model="metaValues.{{ $field['key'] }}" class="w-full rounded-lg border-indigo-200 text-sm font-semibold {{ $isFieldEditable ? 'bg-white' : 'bg-slate-100 text-slate-500 cursor-not-allowed' }}" @disabled(!$isFieldEditable)>
                                             <option value="">Sin especificar</option>
                                             <option value="Sí">Sí</option>
                                             <option value="No">No</option>
                                         </select>
                                     @elseif(($field['type'] ?? 'text') === 'number')
-                                        <input type="number" min="0" wire:model="metaValues.{{ $field['key'] }}" placeholder="{{ $field['placeholder'] ?? '0' }}" class="w-full rounded-lg border-indigo-200 bg-white text-sm font-semibold" @disabled($procedure->status === 'Cerrado')>
+                                        <input type="number" min="0" wire:model="metaValues.{{ $field['key'] }}" placeholder="{{ $field['placeholder'] ?? '0' }}" class="w-full rounded-lg border-indigo-200 text-sm font-semibold {{ $isFieldEditable ? 'bg-white' : 'bg-slate-100 text-slate-500 cursor-not-allowed' }}" @disabled(!$isFieldEditable)>
                                     @else
-                                        <input type="text" wire:model="metaValues.{{ $field['key'] }}" placeholder="{{ $field['placeholder'] ?? 'Ingrese antecedente...' }}" class="w-full rounded-lg border-indigo-200 bg-white text-sm font-semibold" @disabled($procedure->status === 'Cerrado')>
+                                        <input type="text" wire:model="metaValues.{{ $field['key'] }}" placeholder="{{ $field['placeholder'] ?? 'Ingrese antecedente...' }}" class="w-full rounded-lg border-indigo-200 text-sm font-semibold {{ $isFieldEditable ? 'bg-white' : 'bg-slate-100 text-slate-500 cursor-not-allowed' }}" @disabled(!$isFieldEditable)>
                                     @endif
                                 </div>
                             @endforeach
@@ -581,19 +637,48 @@
                 
                 <div class="relative border-l-2 border-slate-200 ml-3 space-y-5">
                     @foreach($procedure->logs->sortByDesc('created_at') as $log)
-                    <div class="ml-6 relative">
+                    @php
+                        $canEditThisLog = auth()->check() && ((int) $log->user_id === (int) auth()->id() || auth()->user()->hasRole('Administrador'));
+                    @endphp
+                    <div class="ml-6 relative" wire:key="proc-log-{{ $log->id }}">
                         <span class="absolute flex items-center justify-center w-5 h-5 bg-blue-100 rounded-full -left-[35px] top-0.5 ring-4 ring-white">
                             <span class="w-2.5 h-2.5 bg-blue-600 rounded-full"></span>
                         </span>
                         
                         <div class="bg-slate-50 rounded-lg p-3.5 border border-slate-200/80">
-                            <div class="flex justify-between items-start mb-1">
+                            <div class="flex justify-between items-start mb-1 gap-2">
                                 <h4 class="font-black text-slate-800 text-sm">{{ $log->action_type }}</h4>
-                                <span class="text-xs font-mono font-bold bg-white border px-2 py-0.5 rounded text-slate-600">
-                                    {{ $log->created_at->format('d/m H:i:s') }}
-                                </span>
+                                <div class="flex items-center gap-2">
+                                    @if($canEditThisLog && $procedure->status !== 'Cerrado' && $editing_log_id !== $log->id)
+                                        <button type="button"
+                                                wire:click="startEditingLog({{ $log->id }})"
+                                                class="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                                            ✏️ Editar
+                                        </button>
+                                    @endif
+                                    <span class="text-xs font-mono font-bold bg-white border px-2 py-0.5 rounded text-slate-600">
+                                        {{ $log->created_at->format('d/m H:i:s') }}
+                                    </span>
+                                </div>
                             </div>
-                            <p class="text-sm text-slate-700 mb-1.5">{{ $log->description }}</p>
+
+                            @if($editing_log_id === $log->id)
+                                <div class="mt-2 space-y-2">
+                                    <textarea wire:model="editing_log_description" rows="2" class="w-full rounded-lg border-indigo-300 text-sm"></textarea>
+                                    @error('editing_log_description') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
+                                    <div class="flex justify-end gap-2">
+                                        <button type="button" wire:click="cancelEditingLog" class="px-2.5 py-1 rounded border border-slate-300 bg-white text-xs font-bold text-slate-700">
+                                            Cancelar
+                                        </button>
+                                        <button type="button" wire:click="saveEditedLog" class="px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold">
+                                            Guardar Cambios
+                                        </button>
+                                    </div>
+                                </div>
+                            @else
+                                <p class="text-sm text-slate-700 mb-1.5">{{ $log->description }}</p>
+                            @endif
+
                             <p class="text-[11px] text-slate-400 font-bold">Registrado por: {{ $log->user->name ?? 'Sistema' }}</p>
                         </div>
                     </div>

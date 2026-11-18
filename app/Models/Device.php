@@ -44,11 +44,12 @@ class Device extends Model
     public function getEffectiveStatusAttribute(): string
     {
         $activeCount = $this->active_procedures_count ?? $this->activeProcedures()->count();
-        if ($activeCount > 0 && ($this->operational_status === 'Disponible (QAP)' || empty($this->operational_status))) {
+        $normalized = trim(str_replace(' (QAP)', '', (string) ($this->operational_status ?: 'Disponible')));
+        if ($activeCount > 0 && ($normalized === 'Disponible' || $normalized === '')) {
             return 'En Procedimiento';
         }
 
-        return $this->operational_status ?: 'Disponible (QAP)';
+        return $this->operational_status ?: 'Disponible';
     }
 
     /**
