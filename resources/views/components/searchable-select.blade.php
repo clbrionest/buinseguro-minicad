@@ -94,7 +94,7 @@
         },
 
         toggleDropdown() {
-            if (this.disabled) return;
+            if (this.isDisabled()) return;
             this.open = !this.open;
             if (this.open) {
                 this.search = '';
@@ -107,8 +107,12 @@
             }
         },
 
+        isDisabled() {
+            return Boolean(this.disabled || this.$root?.dataset?.disabled === 'true');
+        },
+
         selectOption(opt) {
-            if (this.disabled) return;
+            if (this.isDisabled()) return;
             this.value = String(opt.value);
             this.open = false;
             this.search = '';
@@ -122,7 +126,7 @@
         },
 
         clearSelection() {
-            if (this.disabled) return;
+            if (this.isDisabled()) return;
             this.value = '';
             this.search = '';
             if (this.wireModel && typeof $wire !== 'undefined') {
@@ -155,6 +159,7 @@
     }"
     @click.outside="open = false"
     @keydown.escape.stop="open = false"
+    data-disabled="{{ $disabled ? 'true' : 'false' }}"
     {{ $attributes->except(['wire:model', 'wire:model.live']) }}
     class="relative w-full"
 >
@@ -162,7 +167,7 @@
     <div
         @click="toggleDropdown()"
         :class="[
-            disabled ? 'opacity-60 cursor-not-allowed bg-ui-subtle' : 'cursor-pointer',
+            isDisabled() ? 'opacity-60 cursor-not-allowed bg-ui-subtle' : 'cursor-pointer',
             open ? 'ring-2 ring-ui-focus border-ui-focus' : '',
             @js($dark)
                 ? 'bg-[#10131D] border-[#303647] text-[#F7F8FA] hover:border-brand-cobalt-mid'
@@ -190,7 +195,7 @@
             @if($allowClear)
                 <button
                     type="button"
-                    x-show="selectedOption && !disabled"
+                    x-show="selectedOption && !isDisabled()"
                     @click.stop="clearSelection()"
                     class="text-ui-muted hover:text-priority-critical px-1 rounded transition"
                     title="Limpiar selección"

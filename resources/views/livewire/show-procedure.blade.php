@@ -108,10 +108,44 @@
                         </div>
                     @endif
                     <div class="pt-2 border-t border-slate-100">
-                        <span class="font-bold text-slate-500 block text-xs uppercase">Ubicación:</span>
-                        <p class="font-bold text-slate-900">{{ $procedure->sector->name }} — {{ $procedure->exact_address }}</p>
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-500 block text-xs uppercase">Ubicación:</span>
+                            @if($procedure->latitude && $procedure->longitude)
+                                <span class="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                    📍 {{ number_format((float) $procedure->latitude, 5) }}, {{ number_format((float) $procedure->longitude, 5) }}
+                                </span>
+                            @endif
+                        </div>
+                        <p class="font-bold text-slate-900 mt-0.5">{{ $procedure->sector->name }} — {{ $procedure->exact_address }}</p>
                         @if($procedure->address_reference)
                             <p class="text-xs text-slate-600 mt-0.5"><strong>Ref:</strong> {{ $procedure->address_reference }}</p>
+                        @endif
+
+                        @if($procedure->latitude && $procedure->longitude)
+                            <div class="mt-2"
+                                 wire:ignore
+                                 x-data="{
+                                     initProcMiniMap() {
+                                         if (typeof google === 'undefined' || !google.maps) return;
+                                         const pos = { lat: {{ (float) $procedure->latitude }}, lng: {{ (float) $procedure->longitude }} };
+                                         const map = new google.maps.Map(this.$refs.procMapCanvas, {
+                                             zoom: 17,
+                                             center: pos,
+                                             mapTypeControl: false,
+                                             streetViewControl: false,
+                                             fullscreenControl: false,
+                                             zoomControl: true,
+                                         });
+                                         new google.maps.Marker({
+                                             position: pos,
+                                             map: map,
+                                             title: @js($procedure->exact_address),
+                                         });
+                                     }
+                                 }"
+                                 x-init="$nextTick(() => initProcMiniMap())">
+                                <div x-ref="procMapCanvas" class="w-full h-40 rounded-lg border border-slate-200 shadow-inner"></div>
+                            </div>
                         @endif
                     </div>
                     <div class="pt-2 border-t border-slate-100 flex justify-between items-center">
