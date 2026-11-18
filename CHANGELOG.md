@@ -3,6 +3,25 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.4.0] - 2026-11-17 — `PR #15`, `PR #14`, `PR #13`, `PR #12`, `PR #11`, `PR #10`, `PR #9`, `PR #8`
+**Actualización Automática desde rama principal**
+
+### ✨ Nuevas Funcionalidades (Features)
+- **[patrullaje]** PR #14 (feat/patrullaje): fix: eliminar redeclaracion duplicada de
+- **[patrullaje]** PR #13 (feat/patrullaje): patrullaje preventivo v1
+- **[mapa-operativo]** PR #12 (feat/mapa-operativo): feat: mapa-operacional
+
+### 🐛 Correcciones (Bug Fixes)
+- **[fix]** Eliminar redeclaracion duplicada de validatePatrolCheckpoint y openModalWithPatrol
+- **[ui-fixes]** PR #11 (fix/ui-fixes): ui fixes - vistas y categorías
+- **[pbx-webservice]** PR #10 (fix/pbx-webservice): fix: modal para creación de caso + creación de caso
+- **[pbx-webservice]** PR #9 (fix/pbx-webservice): se corrige el log channel y las fachadas respectivas
+- **[pbx-webservice]** PR #8 (fix/pbx-webservice): correcciones en conexion a pbx y laravel reverb
+
+### 🔧 Mantenimiento y Arquitectura (Chores)
+- **[semver]** PR #15 (chore/semver): semver y changelog
+- **[sistema]** Semver
+
 ## [v1.3.0] - 2026-11-17 — `feat/patrullaje`, `feat/mapa-operativo`, `chore/semver`
 **Mapa Operativo Táctico, Patrullajes Preventivos y Versionado SemVer**
 

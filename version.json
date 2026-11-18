@@ -1,9 +1,77 @@
 {
-    "version": "1.3.0",
+    "version": "1.4.0",
     "released_at": "2026-11-17",
     "branch": "main",
-    "last_commit": "3c5d3a0",
+    "last_commit": "67a6bcc",
     "releases": [
+        {
+            "version": "1.4.0",
+            "date": "2026-11-17",
+            "type": "minor",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #15",
+                "PR #14",
+                "PR #13",
+                "PR #12",
+                "PR #11",
+                "PR #10",
+                "PR #9",
+                "PR #8"
+            ],
+            "changes": [
+                {
+                    "type": "chore",
+                    "scope": "semver",
+                    "description": "PR #15 (chore/semver): semver y changelog"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje",
+                    "description": "PR #14 (feat/patrullaje): fix: eliminar redeclaracion duplicada de"
+                },
+                {
+                    "type": "fix",
+                    "scope": "fix",
+                    "description": "Eliminar redeclaracion duplicada de validatePatrolCheckpoint y openModalWithPatrol"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje",
+                    "description": "PR #13 (feat/patrullaje): patrullaje preventivo v1"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Semver"
+                },
+                {
+                    "type": "feat",
+                    "scope": "mapa-operativo",
+                    "description": "PR #12 (feat/mapa-operativo): feat: mapa-operacional"
+                },
+                {
+                    "type": "fix",
+                    "scope": "ui-fixes",
+                    "description": "PR #11 (fix/ui-fixes): ui fixes - vistas y categorías"
+                },
+                {
+                    "type": "fix",
+                    "scope": "pbx-webservice",
+                    "description": "PR #10 (fix/pbx-webservice): fix: modal para creación de caso + creación de caso"
+                },
+                {
+                    "type": "fix",
+                    "scope": "pbx-webservice",
+                    "description": "PR #9 (fix/pbx-webservice): se corrige el log channel y las fachadas respectivas"
+                },
+                {
+                    "type": "fix",
+                    "scope": "pbx-webservice",
+                    "description": "PR #8 (fix/pbx-webservice): correcciones en conexion a pbx y laravel reverb"
+                }
+            ]
+        },
         {
             "version": "1.3.0",
             "date": "2026-11-17",
