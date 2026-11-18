@@ -3,6 +3,13 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.4.1] - 2026-11-17 — `PR #16`
+**Actualización Automática desde rama principal**
+
+### 🐛 Correcciones (Bug Fixes)
+- **[ui-fixes-historial]** PR #16 (fix/ui-fixes-historial): correcciones en historial de llamados
+- **[sistema]** Correcciones en historial de llamados
+
 ## [v1.4.0] - 2026-11-17 — `PR #15`, `PR #14`, `PR #13`, `PR #12`, `PR #11`, `PR #10`, `PR #9`, `PR #8`
 **Actualización Automática desde rama principal**
 

@@ -1,9 +1,30 @@
 {
-    "version": "1.4.0",
+    "version": "1.4.1",
     "released_at": "2026-11-17",
     "branch": "main",
-    "last_commit": "67a6bcc",
+    "last_commit": "dc70254",
     "releases": [
+        {
+            "version": "1.4.1",
+            "date": "2026-11-17",
+            "type": "patch",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #16"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "ui-fixes-historial",
+                    "description": "PR #16 (fix/ui-fixes-historial): correcciones en historial de llamados"
+                },
+                {
+                    "type": "fix",
+                    "scope": "sistema",
+                    "description": "Correcciones en historial de llamados"
+                }
+            ]
+        },
         {
             "version": "1.4.0",
             "date": "2026-11-17",
