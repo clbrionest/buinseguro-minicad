@@ -158,7 +158,7 @@ class CallsReport extends Component
         );
 
         $this->closeLinkModal();
-        session()->flash('message', "Llamada #{$call->id} vinculada exitosamente al Caso Folio #{$procedure->id}.");
+        session()->flash('message', "Llamada #{$call->id} vinculada exitosamente al Caso #{$procedure->id}.");
     }
 
     public function unlinkCall(int $callId): void

@@ -47,7 +47,7 @@
             <div class="relative flex-1 md:w-64">
                 <input wire:model.live.debounce.300ms="search"
                        type="text"
-                       placeholder="Buscar número o anexo..."
+                       placeholder="Buscar número telefónico..."
                        class="w-full text-xs rounded-lg border-gray-300 pl-8 pr-3 py-2 shadow-xs focus:ring-blue-500 focus:border-blue-500">
                 <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-gray-400 text-xs"></i>
             </div>
@@ -55,23 +55,22 @@
     </div>
 
     {{-- Tabla de Llamadas --}}
-    <div class="bg-white shadow-xs rounded-2xl overflow-hidden border border-gray-200">
-        <div class="overflow-x-auto">
+    <div class="bg-white shadow-xs rounded-2xl border border-gray-200">
+        <div class="overflow-x-auto sm:overflow-visible">
             <table class="min-w-full leading-normal">
                 <thead>
                     <tr class="bg-slate-900 text-white text-xs uppercase tracking-wider">
-                        <th class="py-3 px-4 text-left font-black">Fecha / Hora</th>
+                        <th class="py-3 px-4 text-left font-black rounded-tl-2xl">Fecha / Hora</th>
                         <th class="py-3 px-4 text-left font-black">Número Origen</th>
-                        <th class="py-3 px-3 text-center font-black">Anexo Receptor</th>
                         <th class="py-3 px-3 text-center font-black">Estado Llamada</th>
                         <th class="py-3 px-4 text-center font-black">Grabación</th>
                         <th class="py-3 px-4 text-center font-black">Caso Asociado</th>
-                        <th class="py-3 px-4 text-center font-black">Operaciones / Acciones</th>
+                        <th class="py-3 px-4 text-center font-black w-32 rounded-tr-2xl">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="text-xs divide-y divide-gray-100">
                     @forelse ($calls as $call)
-                        <tr class="hover:bg-slate-50/80 transition {{ $call->procedure_id ? 'bg-indigo-50/20' : '' }}">
+                        <tr wire:key="call-row-{{ $call->id }}" class="hover:bg-slate-50/80 transition {{ $call->procedure_id ? 'bg-indigo-50/20' : '' }}">
                             <td class="py-3 px-4 whitespace-nowrap">
                                 <div class="font-bold text-gray-900">{{ $call->created_at->format('d/m/Y') }}</div>
                                 <div class="text-[11px] font-mono text-gray-500">{{ $call->created_at->format('H:i:s') }}</div>
@@ -80,12 +79,6 @@
                             <td class="py-3 px-4 whitespace-nowrap">
                                 <span class="font-mono font-black text-sm text-blue-800 tracking-wider">
                                     {{ $call->caller_id }}
-                                </span>
-                            </td>
-
-                            <td class="py-3 px-3 text-center whitespace-nowrap">
-                                <span class="inline-flex items-center gap-1 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 text-slate-700 font-bold font-mono">
-                                    📞 {{ $call->extension ?: 'N/A' }}
                                 </span>
                             </td>
 
@@ -105,7 +98,11 @@
 
                             <td class="py-3 px-4 text-center whitespace-nowrap">
                                 @if($call->recording_path)
-                                    <audio controls class="h-7 w-36 inline-block" preload="none">
+                                    <audio wire:key="call-audio-{{ $call->id }}"
+                                           controls
+                                           class="h-7 w-40 inline-block"
+                                           preload="none"
+                                           src="{{ route('calls.play', $call->id) }}">
                                         <source src="{{ route('calls.play', $call->id) }}" type="audio/wav">
                                         Audio no soportado.
                                     </audio>
@@ -122,7 +119,7 @@
                                         </span>
                                         <a href="{{ route('procedures.show', $call->procedure_id) }}"
                                            class="text-[11px] font-bold text-indigo-600 hover:text-indigo-900 underline mt-0.5">
-                                            Caso Folio #{{ $call->procedure_id }}
+                                            Caso #{{ $call->procedure_id }}
                                         </a>
                                     </div>
                                 @else
@@ -141,57 +138,79 @@
                                 @endif
                             </td>
 
-                            <td class="py-3 px-4 text-center whitespace-nowrap">
-                                @if($call->procedure_id)
-                                    <div class="inline-flex items-center gap-2">
-                                        <a href="{{ route('procedures.show', $call->procedure_id) }}"
-                                           class="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded text-xs font-bold transition">
-                                            <span>Ver Caso</span>
-                                            <i class="fa-solid fa-arrow-right text-[10px]"></i>
-                                        </a>
-                                        <button type="button"
-                                                wire:click="unlinkCall({{ $call->id }})"
-                                                wire:confirm="¿Seguro que deseas desvincular esta llamada del Caso #{{ $call->procedure_id }}?"
-                                                class="text-red-500 hover:text-red-700 hover:underline text-[11px] font-semibold"
-                                                title="Desvincular del caso">
-                                            Desvincular
-                                        </button>
-                                    </div>
-                                @else
-                                    <div class="inline-flex items-center gap-1.5 flex-wrap justify-center">
-                                        {{-- 1. Crear nuevo caso a partir de este llamado --}}
-                                        <button type="button"
-                                                wire:click="$dispatch('openModal', { caller_id: '{{ $call->caller_id }}', call_id: {{ $call->id }} })"
-                                                class="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded text-xs font-bold shadow-xs transition"
-                                                title="Crear un nuevo caso precargando este número y audio">
-                                            <i class="fa-solid fa-plus-circle"></i>
-                                            <span>Crear Caso</span>
-                                        </button>
+                            <td class="py-3 px-4 text-center whitespace-nowrap w-32">
+                                <div class="relative inline-block text-left"
+                                     x-data="{ open: false }"
+                                     @click.outside="open = false"
+                                     @keydown.escape.window="open = false">
+                                    <button type="button"
+                                            @click="open = !open"
+                                            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition">
+                                        <span>Acciones</span>
+                                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform duration-150" :class="{ 'rotate-180': open }"></i>
+                                    </button>
 
-                                        {{-- 2. Amarrar a un caso ya existente --}}
-                                        <button type="button"
-                                                wire:click="openLinkModal({{ $call->id }})"
-                                                class="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded text-xs font-bold shadow-xs transition"
-                                                title="Amarrar esta grabación a un caso existente">
-                                            <i class="fa-solid fa-link"></i>
-                                            <span>Amarrar Caso</span>
-                                        </button>
+                                    <div x-show="open"
+                                         x-transition:enter="transition ease-out duration-150"
+                                         x-transition:enter-start="opacity-0 scale-95"
+                                         x-transition:enter-end="opacity-100 scale-100"
+                                         x-transition:leave="transition ease-in duration-75"
+                                         x-transition:leave-start="opacity-100 scale-100"
+                                         x-transition:leave-end="opacity-0 scale-95"
+                                         style="display: none;"
+                                         class="absolute right-0 z-50 w-48 rounded-xl bg-white shadow-xl border border-slate-200 py-1.5 {{ $loop->remaining < 2 && $loop->count > 2 ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right' }}">
+                                        @if($call->procedure_id)
+                                            <a href="{{ route('procedures.show', $call->procedure_id) }}"
+                                               class="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition">
+                                                <i class="fa-solid fa-arrow-up-right-from-square w-4 text-center text-blue-600"></i>
+                                                <span>Ver Caso #{{ $call->procedure_id }}</span>
+                                            </a>
+                                            <div class="border-t border-slate-100 my-1"></div>
+                                            <button type="button"
+                                                    wire:click="unlinkCall({{ $call->id }})"
+                                                    wire:confirm="¿Seguro que deseas desvincular esta llamada del Caso #{{ $call->procedure_id }}?"
+                                                    @click="open = false"
+                                                    class="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 transition text-left">
+                                                <i class="fa-solid fa-link-slash w-4 text-center text-red-500"></i>
+                                                <span>Desvincular Caso</span>
+                                            </button>
+                                        @else
+                                            {{-- 1. Crear nuevo caso a partir de este llamado --}}
+                                            <button type="button"
+                                                    wire:click="$dispatch('openModal', { caller_id: '{{ $call->caller_id }}', call_id: {{ $call->id }} })"
+                                                    @click="open = false"
+                                                    class="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition text-left">
+                                                <i class="fa-solid fa-plus-circle w-4 text-center text-emerald-600"></i>
+                                                <span>Crear Caso</span>
+                                            </button>
 
-                                        {{-- 3. Tipificar (si fue broma o informativo sin caso) --}}
-                                        <button type="button"
-                                                wire:click="openClassifyModal({{ $call->id }})"
-                                                class="inline-flex items-center gap-1 {{ $call->classification ? 'bg-gray-200 hover:bg-gray-300 text-gray-700' : 'bg-amber-500 hover:bg-amber-600 text-white' }} px-2 py-1 rounded text-xs font-bold transition"
-                                                title="Tipificar llamada (broma, consulta informativa, etc.)">
-                                            <i class="fa-solid fa-tag text-[10px]"></i>
-                                            <span>{{ $call->classification ? 'Editar Tip.' : 'Tipificar' }}</span>
-                                        </button>
+                                            {{-- 2. Amarrar a un caso ya existente --}}
+                                            <button type="button"
+                                                    wire:click="openLinkModal({{ $call->id }})"
+                                                    @click="open = false"
+                                                    class="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition text-left">
+                                                <i class="fa-solid fa-link w-4 text-center text-indigo-600"></i>
+                                                <span>Amarrar Caso</span>
+                                            </button>
+
+                                            <div class="border-t border-slate-100 my-1"></div>
+
+                                            {{-- 3. Tipificar (si fue broma o informativo sin caso) --}}
+                                            <button type="button"
+                                                    wire:click="openClassifyModal({{ $call->id }})"
+                                                    @click="open = false"
+                                                    class="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition text-left">
+                                                <i class="fa-solid fa-tag w-4 text-center text-amber-500"></i>
+                                                <span>{{ $call->classification ? 'Editar Tipificación' : 'Tipificar Llamada' }}</span>
+                                            </button>
+                                        @endif
                                     </div>
-                                @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="py-12 text-center text-gray-400 text-sm">
+                            <td colspan="6" class="py-12 text-center text-gray-400 text-sm">
                                 <i class="fa-solid fa-phone-slash text-3xl mb-2 text-gray-300 block"></i>
                                 No se encontraron registros telefónicos con los filtros aplicados.
                             </td>
@@ -201,7 +220,7 @@
             </table>
         </div>
 
-        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl">
             {{ $calls->links() }}
         </div>
     </div>
@@ -247,7 +266,11 @@
                         @if($selectedCallForLinking->recording_path)
                             <div class="w-full sm:w-auto">
                                 <label class="text-[10px] font-bold uppercase text-slate-600 block mb-1">Escuchar Grabación:</label>
-                                <audio controls class="h-8 w-full sm:w-48" preload="none">
+                                <audio wire:key="modal-call-audio-{{ $selectedCallForLinking->id }}"
+                                       controls
+                                       class="h-8 w-full sm:w-48"
+                                       preload="none"
+                                       src="{{ route('calls.play', $selectedCallForLinking->id) }}">
                                     <source src="{{ route('calls.play', $selectedCallForLinking->id) }}" type="audio/wav">
                                 </audio>
                             </div>
