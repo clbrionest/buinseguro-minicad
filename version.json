@@ -1,9 +1,30 @@
 {
-    "version": "1.5.0",
-    "released_at": "2026-11-17",
+    "version": "1.6.0",
+    "released_at": "2026-11-18",
     "branch": "main",
-    "last_commit": "6055972",
+    "last_commit": "2985b11",
     "releases": [
+        {
+            "version": "1.6.0",
+            "date": "2026-11-18",
+            "type": "minor",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #18"
+            ],
+            "changes": [
+                {
+                    "type": "feat",
+                    "scope": "patrullaje-puntos",
+                    "description": "PR #18 (feat/patrullaje-puntos): mejoras patrullaje preventivo y seguimiento gps"
+                },
+                {
+                    "type": "feat",
+                    "scope": "sistema",
+                    "description": "Mejoras patrullaje preventivo y seguimiento gps"
+                }
+            ]
+        },
         {
             "version": "1.5.0",
             "date": "2026-11-17",

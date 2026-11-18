@@ -3,6 +3,13 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.6.0] - 2026-11-18 — `PR #18`
+**Actualización Automática desde rama principal**
+
+### ✨ Nuevas Funcionalidades (Features)
+- **[patrullaje-puntos]** PR #18 (feat/patrullaje-puntos): mejoras patrullaje preventivo y seguimiento gps
+- **[sistema]** Mejoras patrullaje preventivo y seguimiento gps
+
 ## [v1.5.0] - 2026-11-17 — `PR #17`
 **Actualización Automática desde rama principal**
 
