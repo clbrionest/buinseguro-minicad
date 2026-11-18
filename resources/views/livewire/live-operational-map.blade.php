@@ -60,8 +60,36 @@
             </button>
         </div>
 
-        <!-- Barra de Herramientas y Apariencia del Mapa (Derecha) -->
-        <div class="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 dark:bg-ui-card/90 backdrop-blur-md border border-slate-700/60 dark:border-ui-border rounded-xl p-1.5 shadow-2xl">
+        <!-- Barra de Herramientas, Capas y Apariencia del Mapa (Derecha) -->
+        <div class="pointer-events-auto flex flex-wrap items-center gap-1.5 bg-slate-900/90 dark:bg-ui-card/90 backdrop-blur-md border border-slate-700/60 dark:border-ui-border rounded-xl p-1.5 shadow-2xl">
+            <!-- Selector de Capas de Visualización (Procedimientos, Móviles, Ruta GPS) -->
+            <div class="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/50" role="group" aria-label="Capas de visualización en tiempo real">
+                <button type="button"
+                        id="layer-btn-procedures"
+                        onclick="toggleMapLayer('procedures')"
+                        class="px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 bg-indigo-600 text-white shadow-xs"
+                        title="Capa: Posiciones en tiempo real de Procedimientos">
+                    <span>📍</span>
+                    <span class="hidden lg:inline">Procedimientos</span>
+                </button>
+                <button type="button"
+                        id="layer-btn-vehicles"
+                        onclick="toggleMapLayer('vehicles')"
+                        class="px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 bg-blue-600 text-white shadow-xs"
+                        title="Capa: Posición en tiempo real de Móviles">
+                    <span>🚓</span>
+                    <span class="hidden lg:inline">Móviles</span>
+                </button>
+                <button type="button"
+                        id="layer-btn-routes"
+                        onclick="toggleMapLayer('routes')"
+                        class="px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 bg-emerald-600 text-white shadow-xs"
+                        title="Capa: Seguimiento de Ruta GPS de los Móviles">
+                    <span>〰️</span>
+                    <span class="hidden lg:inline">Ruta GPS</span>
+                </button>
+            </div>
+
             <!-- Selector de Skin / Capa Cartográfica -->
             <div class="flex items-center bg-slate-800/80 p-0.5 rounded-lg border border-slate-700/50">
                 <button type="button"
@@ -180,10 +208,16 @@
                 </div>
             </div>
 
-            <!-- Móviles -->
-            <div class="border-t border-slate-800 pt-2 text-[11px] flex items-center gap-2">
-                <span class="text-sm">🚓</span>
-                <span><strong>Móviles GPS:</strong> Muestra identificador y estado en tiempo real.</span>
+            <!-- Móviles y Rutas GPS -->
+            <div class="border-t border-slate-800 pt-2 text-[11px] space-y-1.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm">🚓</span>
+                    <span><strong>Móviles GPS:</strong> Posición e identificador en tiempo real.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-sm">〰️</span>
+                    <span><strong>Ruta GPS:</strong> Estela del recorrido del móvil en tiempo real.</span>
+                </div>
             </div>
         </div>
 
@@ -508,13 +542,121 @@
         }
 
         // ==========================================
-        // 3. RENDERIZADO DE MARCADORES Y POPUPS
+        // 3. RENDERIZADO DE MARCADORES, RUTAS GPS Y CAPAS
         // ==========================================
         let markers = {};
         let vehicleMarkers = {};
+        let vehicleRoutePolylines = {};
+        let procedureDispatchLines = {};
         let currentLocations = [];
         let currentVehicles = [];
         const infoWindow = new google.maps.InfoWindow();
+
+        let layerVisibility = {
+            procedures: true,
+            vehicles: true,
+            routes: true,
+        };
+
+        window.toggleMapLayer = function(layerName) {
+            if (!(layerName in layerVisibility)) return;
+            layerVisibility[layerName] = !layerVisibility[layerName];
+            const isVisible = layerVisibility[layerName];
+
+            const btn = document.getElementById('layer-btn-' + layerName);
+            if (btn) {
+                const activeClasses = {
+                    procedures: 'bg-indigo-600 text-white shadow-xs',
+                    vehicles: 'bg-blue-600 text-white shadow-xs',
+                    routes: 'bg-emerald-600 text-white shadow-xs',
+                }[layerName];
+
+                if (isVisible) {
+                    btn.className = `px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 ${activeClasses}`;
+                } else {
+                    btn.className = 'px-2.5 py-1 text-xs font-bold rounded-md transition flex items-center gap-1 text-slate-400 hover:text-white opacity-60';
+                }
+            }
+
+            if (layerName === 'procedures') {
+                for (let id in markers) {
+                    markers[id].setMap(isVisible ? map : null);
+                }
+                for (let id in procedureDispatchLines) {
+                    procedureDispatchLines[id].setMap(isVisible ? map : null);
+                }
+            } else if (layerName === 'vehicles') {
+                for (let id in vehicleMarkers) {
+                    vehicleMarkers[id].setMap(isVisible ? map : null);
+                }
+            } else if (layerName === 'routes') {
+                for (let id in vehicleRoutePolylines) {
+                    vehicleRoutePolylines[id].setMap(isVisible ? map : null);
+                }
+            }
+        };
+
+        window.focusVehicleRoute = function(vehicleId) {
+            const v = currentVehicles.find(item => parseInt(item.id) === parseInt(vehicleId));
+            if (!v) return;
+            if (Array.isArray(v.route) && v.route.length > 1) {
+                const bounds = new google.maps.LatLngBounds();
+                v.route.forEach(pt => bounds.extend({ lat: parseFloat(pt.lat), lng: parseFloat(pt.lng) }));
+                map.fitBounds(bounds);
+            } else {
+                map.panTo({ lat: v.lat, lng: v.lng });
+                map.setZoom(16);
+            }
+        };
+
+        function renderProcedureVectors(locations, vehicles) {
+            const activeProcIds = locations.map(l => l.id);
+            for (let id in procedureDispatchLines) {
+                if (!activeProcIds.includes(parseInt(id))) {
+                    procedureDispatchLines[id].setMap(null);
+                    delete procedureDispatchLines[id];
+                }
+            }
+
+            const vehicleMap = {};
+            (vehicles || []).forEach(v => { vehicleMap[v.id] = v; });
+
+            locations.forEach(loc => {
+                if (loc.device_id && vehicleMap[loc.device_id] && (loc.status === 'En Camino' || loc.status === 'En el Lugar')) {
+                    const v = vehicleMap[loc.device_id];
+                    const path = [
+                        { lat: v.lat, lng: v.lng },
+                        { lat: loc.lat, lng: loc.lng }
+                    ];
+                    const strokeColor = loc.status === 'En Camino' ? '#F59E0B' : '#10B981';
+
+                    if (procedureDispatchLines[loc.id]) {
+                        procedureDispatchLines[loc.id].setPath(path);
+                        procedureDispatchLines[loc.id].setMap(layerVisibility.procedures ? map : null);
+                    } else {
+                        procedureDispatchLines[loc.id] = new google.maps.Polyline({
+                            path: path,
+                            geodesic: true,
+                            strokeOpacity: 0,
+                            icons: [{
+                                icon: {
+                                    path: 'M 0,-1 0,1',
+                                    strokeOpacity: 0.85,
+                                    strokeColor: strokeColor,
+                                    scale: 3
+                                },
+                                offset: '0',
+                                repeat: '14px'
+                            }],
+                            map: layerVisibility.procedures ? map : null,
+                        });
+                    }
+                } else if (procedureDispatchLines[loc.id]) {
+                    procedureDispatchLines[loc.id].setMap(null);
+                    delete procedureDispatchLines[loc.id];
+                }
+            });
+        }
 
         function renderMarkers(locations) {
             currentLocations = locations;
@@ -538,10 +680,11 @@
                     markers[loc.id].setPosition(position);
                     markers[loc.id].setIcon(icon);
                     markers[loc.id].setAnimation(animation);
+                    markers[loc.id].setMap(layerVisibility.procedures ? map : null);
                 } else {
                     let marker = new google.maps.Marker({
                         position: position,
-                        map: map,
+                        map: layerVisibility.procedures ? map : null,
                         icon: icon,
                         animation: animation,
                         title: `#${loc.id} - ${loc.type} (${loc.status})`
@@ -583,6 +726,8 @@
                     markers[loc.id] = marker;
                 }
             });
+
+            renderProcedureVectors(locations, currentVehicles);
         }
 
         function renderVehicles(vehicles) {
@@ -597,39 +742,96 @@
                 }
             }
 
+            for (let id in vehicleRoutePolylines) {
+                if (!activeIds.includes(parseInt(id))) {
+                    vehicleRoutePolylines[id].setMap(null);
+                    delete vehicleRoutePolylines[id];
+                }
+            }
+
             vehicles.forEach(v => {
                 let position = { lat: v.lat, lng: v.lng };
                 let icon = createVehicleIcon(v.name, v.status);
+                let routeColor = v.status === 'En Procedimiento' ? '#38BDF8' : '#10B981';
 
+                // 1. Dibujar o actualizar la ruta GPS recorrida por el móvil
+                if (Array.isArray(v.route) && v.route.length > 1) {
+                    const pathCoords = v.route.map(pt => ({ lat: parseFloat(pt.lat), lng: parseFloat(pt.lng) }));
+
+                    if (vehicleRoutePolylines[v.id]) {
+                        vehicleRoutePolylines[v.id].setPath(pathCoords);
+                        vehicleRoutePolylines[v.id].setOptions({ strokeColor: routeColor });
+                        vehicleRoutePolylines[v.id].setMap(layerVisibility.routes ? map : null);
+                    } else {
+                        vehicleRoutePolylines[v.id] = new google.maps.Polyline({
+                            path: pathCoords,
+                            geodesic: true,
+                            strokeColor: routeColor,
+                            strokeOpacity: 0.85,
+                            strokeWeight: 4,
+                            icons: [{
+                                icon: {
+                                    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                                    scale: 2.5,
+                                    strokeColor: '#FFFFFF',
+                                    fillColor: routeColor,
+                                    fillOpacity: 1
+                                },
+                                offset: '100%',
+                                repeat: '90px'
+                            }],
+                            map: layerVisibility.routes ? map : null,
+                        });
+                    }
+                } else if (vehicleRoutePolylines[v.id]) {
+                    vehicleRoutePolylines[v.id].setMap(null);
+                    delete vehicleRoutePolylines[v.id];
+                }
+
+                // 2. Dibujar o actualizar el marcador de posición en vivo del móvil
                 if (vehicleMarkers[v.id]) {
                     vehicleMarkers[v.id].setPosition(position);
                     vehicleMarkers[v.id].setIcon(icon);
+                    vehicleMarkers[v.id].setMap(layerVisibility.vehicles ? map : null);
                 } else {
                     let marker = new google.maps.Marker({
                         position: position,
-                        map: map,
+                        map: layerVisibility.vehicles ? map : null,
                         icon: icon,
                         title: `🚓 ${v.name} (${v.status})`
                     });
 
                     marker.addListener('click', () => {
+                        const latestV = currentVehicles.find(item => item.id === v.id) || v;
+                        const routePtsCount = Array.isArray(latestV.route) ? latestV.route.length : 0;
+                        const patrolHtml = latestV.active_patrol
+                            ? `<div class="mt-1.5 p-1.5 rounded bg-indigo-50 border border-indigo-200 text-[11px] flex items-center justify-between">
+                                   <span class="font-bold text-indigo-900">🛡️ ${latestV.active_patrol.folio} (${latestV.active_patrol.validated}/${latestV.active_patrol.total} hitos)</span>
+                                   <a href="/patrullajes-preventivos/${latestV.active_patrol.id}" target="_blank" class="font-bold text-indigo-600 underline">Ver</a>
+                               </div>`
+                            : '';
+
                         let content = `
-                            <div class="cad-info-window font-sans text-left p-2.5 min-w-[240px] max-w-[300px] text-slate-900 bg-white rounded-xl shadow-lg">
+                            <div class="cad-info-window font-sans text-left p-2.5 min-w-[250px] max-w-[310px] text-slate-900 bg-white rounded-xl shadow-lg">
                                 <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-2">
                                     <div class="flex items-center gap-1.5">
                                         <span class="text-base">🚓</span>
-                                        <span class="font-black text-sm text-slate-900">${v.name}</span>
+                                        <span class="font-black text-sm text-slate-900">${latestV.name}</span>
                                     </div>
-                                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">${v.status}</span>
+                                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">${latestV.status}</span>
                                 </div>
                                 <div class="space-y-1 text-xs text-slate-600 mb-2">
-                                    <p><strong class="text-slate-700">Sector Asignado:</strong> ${v.sector}</p>
-                                    <p><strong class="text-slate-700">Tripulación:</strong> ${v.crew}</p>
-                                    <p><strong class="text-slate-700">Procedimientos Activos:</strong> ${v.active_procedures_count || 0}</p>
+                                    <p><strong class="text-slate-700">Sector Asignado:</strong> ${latestV.sector}</p>
+                                    <p><strong class="text-slate-700">Tripulación:</strong> ${latestV.crew}</p>
+                                    <p><strong class="text-slate-700">Procedimientos Activos:</strong> ${latestV.active_procedures_count || 0}</p>
+                                    <p><strong class="text-slate-700">Puntos GPS en Ruta:</strong> <span class="font-mono font-bold">${routePtsCount}</span></p>
+                                    ${patrolHtml}
                                 </div>
-                                <div class="text-[10px] text-slate-400 border-t border-slate-100 pt-1.5 flex justify-between">
-                                    <span>Último reporte GPS:</span>
-                                    <span class="font-mono font-bold text-slate-600">${v.updated}</span>
+                                <div class="text-[10px] text-slate-400 border-t border-slate-100 pt-1.5 flex items-center justify-between gap-2">
+                                    <span>Último GPS: <strong class="font-mono text-slate-600">${latestV.updated}</strong></span>
+                                    <button type="button" onclick="focusVehicleRoute(${latestV.id})" class="text-[11px] font-bold text-blue-600 hover:underline">
+                                        Enfocar Ruta &rarr;
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -640,6 +842,8 @@
                     vehicleMarkers[v.id] = marker;
                 }
             });
+
+            renderProcedureVectors(currentLocations, vehicles);
         }
 
         // ==========================================

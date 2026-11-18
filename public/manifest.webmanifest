@@ -1,0 +1,25 @@
+{
+    "name": "BuinSeguro CAD — Consola Móvil Inspector",
+    "short_name": "BuinSeguro GPS",
+    "description": "Consola Móvil Operativa y Telemetría GPS en Tiempo Real para Inspectores Municipales de Buin Seguro.",
+    "start_url": "/modo-terreno",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#0F172A",
+    "theme_color": "#0F172A",
+    "icons": [
+        {
+            "src": "/icons/icon-192.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-512.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ]
+}

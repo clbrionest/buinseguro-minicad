@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Livewire\CreatePreventivePatrol;
 use App\Livewire\CreateProcedure;
+use App\Livewire\FieldInspectorPanel;
+use App\Livewire\ManagePreventivePatrols;
 use App\Livewire\ShowPreventivePatrol;
 use App\Models\Device;
 use App\Models\Landmark;
@@ -232,5 +234,57 @@ class PreventivePatrolTest extends TestCase
         $response->assertSee('PAT-2026-0004');
         $response->assertSee('Informe Operativo de Patrullaje Preventivo');
         $response->assertSee('M-01');
+    }
+
+    public function test_inspector_can_add_additional_patrol_checkpoint_from_field_panel(): void
+    {
+        $patrol = PreventivePatrol::create([
+            'folio' => 'PAT-2026-0005',
+            'device_id' => $this->device->id,
+            'sector_id' => $this->sector->id,
+            'user_id' => $this->admin->id,
+            'patrol_type' => 'Ronda Preventiva General',
+            'status' => 'En Curso',
+            'started_at' => now(),
+        ]);
+
+        Livewire::actingAs($this->admin)
+            ->test(FieldInspectorPanel::class)
+            ->set('selected_device_id', $this->device->id)
+            ->call('toggleAddPatrolPointForm')
+            ->assertSet('showAddPatrolPointForm', true)
+            ->set('new_patrol_point_name', 'Plaza Villa Estación')
+            ->set('new_patrol_point_address', 'Av. Estación con Maipo')
+            ->set('validate_new_point_immediately', true)
+            ->call('addAdditionalPatrolCheckpoint', -33.7345, -70.7435)
+            ->assertHasNoErrors()
+            ->assertSet('showAddPatrolPointForm', false)
+            ->assertSee('Plaza Villa Estación');
+
+        $this->assertEquals(1, $patrol->checkpoints()->count());
+        $addedCheckpoint = $patrol->checkpoints()->first();
+        $this->assertEquals('Plaza Villa Estación', $addedCheckpoint->name);
+        $this->assertEquals('Validado', $addedCheckpoint->status);
+    }
+
+    public function test_manage_preventive_patrols_refreshes_automatically_on_patrol_created_event(): void
+    {
+        $component = Livewire::actingAs($this->admin)
+            ->test(ManagePreventivePatrols::class)
+            ->assertSee('No se encontraron patrullajes preventivos');
+
+        $patrol = PreventivePatrol::create([
+            'folio' => 'PAT-2026-0099',
+            'device_id' => $this->device->id,
+            'sector_id' => $this->sector->id,
+            'user_id' => $this->admin->id,
+            'patrol_type' => 'Ronda Nocturna Residencial',
+            'status' => 'En Curso',
+            'started_at' => now(),
+        ]);
+
+        $component->dispatch('preventive-patrol-created', patrolId: $patrol->id)
+            ->assertSee('PAT-2026-0099')
+            ->assertSee('Patrullaje Preventivo PAT-2026-0099 iniciado exitosamente.');
     }
 }

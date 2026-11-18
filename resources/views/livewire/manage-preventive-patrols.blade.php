@@ -134,7 +134,7 @@
                 </thead>
                 <tbody class="divide-y divide-ui-border font-medium">
                     @forelse($patrols as $p)
-                        <tr class="hover:bg-ui-subtle/60 transition">
+                        <tr wire:key="patrol-row-{{ $p->id }}" class="hover:bg-ui-subtle/60 transition">
                             {{-- Folio & Tipo --}}
                             <td class="py-3 px-4">
                                 <a href="{{ route('patrols.preventive.show', $p) }}" wire:navigate class="font-mono font-black text-brand-cobalt dark:text-brand-cobalt-light hover:underline text-sm block">

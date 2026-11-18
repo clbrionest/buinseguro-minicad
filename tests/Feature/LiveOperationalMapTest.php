@@ -119,4 +119,29 @@ class LiveOperationalMapTest extends TestCase
             ->test(LiveOperationalMap::class)
             ->assertSet('counts.on_way', 1);
     }
+
+    public function test_operational_map_includes_vehicle_gps_route_and_layer_controls(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('Administrador');
+
+        $device = Device::create([
+            'name' => 'M-05',
+            'operational_status' => 'Disponible (QAP)',
+        ]);
+
+        $device->recordGpsPoint(-33.7320, -70.7420, 35);
+        $device->recordGpsPoint(-33.7335, -70.7440, 40);
+
+        $component = Livewire::actingAs($admin)
+            ->test(LiveOperationalMap::class)
+            ->assertSee('layer-btn-procedures')
+            ->assertSee('layer-btn-vehicles')
+            ->assertSee('layer-btn-routes');
+
+        $vehicles = $component->get('vehicles');
+        $this->assertCount(1, $vehicles);
+        $this->assertSame('M-05', $vehicles[0]['name']);
+        $this->assertGreaterThanOrEqual(2, count($vehicles[0]['route']));
+    }
 }

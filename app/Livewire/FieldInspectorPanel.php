@@ -2,9 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Models\AuditLog;
 use App\Models\Device;
 use App\Models\EventReport;
 use App\Models\Evidence;
+use App\Models\Landmark;
 use App\Models\PatrolAssignment;
 use App\Models\PreventivePatrol;
 use App\Models\PreventivePatrolCheckpoint;
@@ -12,6 +14,7 @@ use App\Models\Procedure;
 use App\Models\ProcedureLog;
 use App\Models\SystemCatalogItem;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -26,6 +29,17 @@ class FieldInspectorPanel extends Component
     public $quick_note = '';
 
     public $quick_photo = null;
+
+    // Formulario para agregar puntos/hitos adicionales al patrullaje preventivo en curso
+    public $showAddPatrolPointForm = false;
+
+    public $new_patrol_landmark_id = '';
+
+    public $new_patrol_point_name = '';
+
+    public $new_patrol_point_address = '';
+
+    public $validate_new_point_immediately = true;
 
     public function mount()
     {
@@ -70,29 +84,126 @@ class FieldInspectorPanel extends Component
         session()->flash('field_message', 'Estado del móvil actualizado a: '.str_replace(' (QAP)', '', $status));
     }
 
-    public function updateDeviceGps($lat, $lng)
+    #[On('preventive-patrol-created')]
+    public function handlePreventivePatrolCreated(): void
+    {
+        // Refresca la vista cuando se inicia un patrullaje preventivo
+    }
+
+    public function updateDeviceGps($lat, $lng, $speed = null, $silent = false)
     {
         if (! $this->selected_device_id || ! $lat || ! $lng) {
             return;
         }
 
-        Device::where('id', $this->selected_device_id)->update([
-            'last_lat' => $lat,
-            'last_lng' => $lng,
-            'last_location_at' => now(),
-        ]);
+        $device = Device::find($this->selected_device_id);
+        if ($device) {
+            $device->recordGpsPoint($lat, $lng, $speed);
+        }
 
-        // Registrar trazabilidad GPS en el patrullaje preventivo si está activo
+        if (! $silent) {
+            session()->flash('field_message', 'Ubicación GPS del móvil actualizada en el Mapa Operativo.');
+        }
+    }
+
+    public function toggleAddPatrolPointForm(): void
+    {
+        $this->showAddPatrolPointForm = ! $this->showAddPatrolPointForm;
+        $this->reset(['new_patrol_landmark_id', 'new_patrol_point_name', 'new_patrol_point_address']);
+        $this->validate_new_point_immediately = true;
+    }
+
+    public function updatedNewPatrolLandmarkId($value): void
+    {
+        if ($value) {
+            $landmark = Landmark::find($value);
+            if ($landmark) {
+                $this->new_patrol_point_name = $landmark->name;
+                $this->new_patrol_point_address = $landmark->address;
+            }
+        } else {
+            $this->reset(['new_patrol_point_name', 'new_patrol_point_address']);
+        }
+    }
+
+    public function addAdditionalPatrolCheckpoint($lat = null, $lng = null): void
+    {
+        if (! $this->selected_device_id) {
+            return;
+        }
+
         $activePatrol = PreventivePatrol::where('device_id', $this->selected_device_id)
             ->where('status', 'En Curso')
             ->latest('started_at')
             ->first();
 
-        if ($activePatrol) {
-            $activePatrol->recordGpsPoint($lat, $lng);
+        if (! $activePatrol) {
+            return;
         }
 
-        session()->flash('field_message', 'Ubicación GPS del móvil actualizada en el Mapa Operativo.');
+        $landmark = $this->new_patrol_landmark_id ? Landmark::find($this->new_patrol_landmark_id) : null;
+        if ($landmark && empty(trim((string) $this->new_patrol_point_name))) {
+            $this->new_patrol_point_name = $landmark->name;
+        }
+
+        $this->validate([
+            'new_patrol_point_name' => 'required|string|max:120',
+            'new_patrol_point_address' => 'nullable|string|max:200',
+        ], [
+            'new_patrol_point_name.required' => 'Indique el nombre del punto o seleccione un hito.',
+        ]);
+
+        $device = Device::find($this->selected_device_id);
+        $pointLat = $landmark?->latitude ?? ($lat ?: ($device?->last_lat ?: -33.7320));
+        $pointLng = $landmark?->longitude ?? ($lng ?: ($device?->last_lng ?: -70.7420));
+        $nextOrder = ((int) $activePatrol->checkpoints()->max('order')) + 1;
+
+        $checkpoint = PreventivePatrolCheckpoint::create([
+            'preventive_patrol_id' => $activePatrol->id,
+            'landmark_id' => $landmark?->id,
+            'name' => trim((string) $this->new_patrol_point_name),
+            'address' => trim((string) $this->new_patrol_point_address) ?: ($landmark?->address ?: 'Punto adicional en terreno'),
+            'latitude' => (float) $pointLat,
+            'longitude' => (float) $pointLng,
+            'order' => $nextOrder,
+            'status' => 'Pendiente',
+        ]);
+
+        if ($this->validate_new_point_immediately) {
+            $valLat = is_numeric($lat) ? (float) $lat : (float) $pointLat;
+            $valLng = is_numeric($lng) ? (float) $lng : (float) $pointLng;
+
+            $checkpoint->validateCheckpoint(
+                lat: $valLat,
+                lng: $valLng,
+                userId: Auth::id(),
+                notes: 'Punto adicional incorporado y validado en terreno por inspector'
+            );
+
+            if ($device && is_numeric($lat) && is_numeric($lng)) {
+                $device->recordGpsPoint($valLat, $valLng);
+            } else {
+                $activePatrol->recordGpsPoint($valLat, $valLng);
+            }
+        }
+
+        AuditLog::record(
+            'preventive_patrol.checkpoint_added',
+            'Patrullaje Preventivo',
+            "Inspector agregó punto adicional '{$checkpoint->name}' al patrullaje {$activePatrol->folio}.",
+            $activePatrol,
+            [
+                'checkpoint_id' => $checkpoint->id,
+                'name' => $checkpoint->name,
+                'validated_immediately' => (bool) $this->validate_new_point_immediately,
+            ]
+        );
+
+        $this->showAddPatrolPointForm = false;
+        $this->reset(['new_patrol_landmark_id', 'new_patrol_point_name', 'new_patrol_point_address']);
+        $this->validate_new_point_immediately = true;
+
+        session()->flash('field_message', "Punto adicional '{$checkpoint->name}' agregado al patrullaje {$activePatrol->folio}.");
     }
 
     public function validatePatrolCheckpoint($checkpointId, $lat = null, $lng = null)
@@ -106,7 +217,12 @@ class FieldInspectorPanel extends Component
         );
 
         if ($lat && $lng) {
-            $checkpoint->preventivePatrol->recordGpsPoint($lat, $lng);
+            $device = Device::find($this->selected_device_id);
+            if ($device) {
+                $device->recordGpsPoint($lat, $lng);
+            } else {
+                $checkpoint->preventivePatrol->recordGpsPoint($lat, $lng);
+            }
         }
 
         session()->flash('field_message', "Hito '{$checkpoint->name}' validado con éxito.");
@@ -131,11 +247,10 @@ class FieldInspectorPanel extends Component
         ]);
 
         if ($procedure->device_id && $lat && $lng) {
-            Device::where('id', $procedure->device_id)->update([
-                'last_lat' => $lat,
-                'last_lng' => $lng,
-                'last_location_at' => now(),
-            ]);
+            $device = Device::find($procedure->device_id);
+            if ($device) {
+                $device->recordGpsPoint($lat, $lng);
+            }
         }
 
         $distanceText = ! is_null($distance)
@@ -245,6 +360,7 @@ class FieldInspectorPanel extends Component
             'assignedProcedures' => $assignedProcedures,
             'assignedEventReports' => $assignedEventReports,
             'activePreventivePatrol' => $activePreventivePatrol,
+            'landmarks' => Landmark::orderBy('name')->get(),
         ])->layout('layouts.app');
     }
 }

@@ -6,6 +6,7 @@ use App\Models\PreventivePatrol;
 use App\Models\Procedure;
 use App\Models\Sector;
 use Carbon\Carbon;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -42,6 +43,25 @@ class ManagePreventivePatrols extends Component
     }
 
     public function updatingFilterDate()
+    {
+        $this->resetPage();
+    }
+
+    #[On('preventive-patrol-created')]
+    public function handlePreventivePatrolCreated($patrolId = null): void
+    {
+        $this->resetPage();
+
+        if ($patrolId) {
+            $patrol = PreventivePatrol::find($patrolId);
+            if ($patrol) {
+                session()->flash('message', "Patrullaje Preventivo {$patrol->folio} iniciado exitosamente.");
+            }
+        }
+    }
+
+    #[On('procedure-created')]
+    public function handleProcedureCreated(): void
     {
         $this->resetPage();
     }
