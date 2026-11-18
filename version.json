@@ -1,9 +1,30 @@
 {
-    "version": "1.4.1",
+    "version": "1.5.0",
     "released_at": "2026-11-17",
     "branch": "main",
-    "last_commit": "dc70254",
+    "last_commit": "6055972",
     "releases": [
+        {
+            "version": "1.5.0",
+            "date": "2026-11-17",
+            "type": "minor",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #17"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "ui-modal-procedimiento",
+                    "description": "PR #17 (fix/ui-modal-procedimiento): mini mapa - correcciones en panel de direcciones"
+                },
+                {
+                    "type": "feat",
+                    "scope": "sistema",
+                    "description": "Mini mapa - correcciones en panel de direcciones"
+                }
+            ]
+        },
         {
             "version": "1.4.1",
             "date": "2026-11-17",

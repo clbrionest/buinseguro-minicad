@@ -3,6 +3,15 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.5.0] - 2026-11-17 — `PR #17`
+**Actualización Automática desde rama principal**
+
+### ✨ Nuevas Funcionalidades (Features)
+- **[sistema]** Mini mapa - correcciones en panel de direcciones
+
+### 🐛 Correcciones (Bug Fixes)
+- **[ui-modal-procedimiento]** PR #17 (fix/ui-modal-procedimiento): mini mapa - correcciones en panel de direcciones
+
 ## [v1.4.1] - 2026-11-17 — `PR #16`
 **Actualización Automática desde rama principal**
 
