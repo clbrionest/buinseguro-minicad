@@ -73,6 +73,7 @@
         <livewire:create-procedure :showButton="false" />
         <livewire:create-preventive-patrol :showButton="false" />
         <livewire:incoming-call-popup />
+        <livewire:emergency-dispatch-alert />
 
         <script>
             if ('serviceWorker' in navigator) {

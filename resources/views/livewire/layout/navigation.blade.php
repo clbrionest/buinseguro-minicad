@@ -39,7 +39,7 @@ new class extends Component
             <div class="flex items-center gap-1.5 min-w-0">
                 <!-- Logo / Brand CAD (Escudo Institucional + #94C11E Lime) -->
                 <div class="shrink-0 flex items-center pr-3 mr-1 border-r border-white/15">
-                    <a href="{{ route('dashboard') }}" wire:navigate class="flex items-center gap-2.5 group">
+                    <a href="{{ auth()->user()?->isInspectorOnly() ? route('field.inspector') : route('dashboard') }}" wire:navigate class="flex items-center gap-2.5 group">
                         <div class="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center shadow-xs group-hover:scale-105 transition shrink-0 border border-white/20">
                             <img src="{{ asset('escudo.svg') }}" alt="Escudo Buin Seguro" class="h-full w-auto object-contain">
                         </div>
@@ -63,11 +63,18 @@ new class extends Component
                         $adminActive = request()->routeIs('catalogs.manage') || request()->routeIs('landmarks.manage') || request()->routeIs('users.manage');
                     @endphp
 
-                    <!-- 1. Sala de Despacho (Directo) -->
-                    <a href="{{ route('dashboard') }}" wire:navigate class="{{ $navClass(request()->routeIs('dashboard')) }}">
-                        <i class="fa-solid fa-satellite-dish text-[11px]" aria-hidden="true"></i>
-                        <span>Sala Despacho</span>
-                    </a>
+                    @if(auth()->user()?->isInspectorOnly())
+                        <a href="{{ route('field.inspector') }}" wire:navigate class="{{ $navClass(request()->routeIs('field.inspector')) }}">
+                            <i class="fa-solid fa-mobile-screen-button text-[11px]" aria-hidden="true"></i>
+                            <span>Modo Terreno</span>
+                        </a>
+                    @else
+                        <!-- 1. Sala de Despacho (Directo) -->
+                        <a href="{{ route('dashboard') }}" wire:navigate class="{{ $navClass(request()->routeIs('dashboard')) }}">
+                            <i class="fa-solid fa-satellite-dish text-[11px]" aria-hidden="true"></i>
+                            <span>Sala Despacho</span>
+                        </a>
+                    @endif
 
                     <!-- 2. Mapa en Vivo (Directo) -->
                     <a href="{{ route('map.live') }}" class="{{ $navClass(request()->routeIs('map.live')) }}">

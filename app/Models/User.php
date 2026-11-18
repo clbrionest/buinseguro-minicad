@@ -16,7 +16,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * Get the attributes that should be cast.
@@ -41,5 +41,66 @@ class User extends Authenticatable
     public function procedures()
     {
         return $this->hasMany(Procedure::class);
+    }
+
+    /**
+     * Determina si el usuario tiene únicamente el rol de Inspector (sin roles de sala/supervisión).
+     */
+    public function isInspectorOnly(): bool
+    {
+        return $this->hasRole('Inspector') && ! $this->hasAnyRole(['Administrador', 'Supervisor', 'Operador']);
+    }
+
+    /**
+     * Obtiene los IDs de los móviles/vehículos asignados al usuario en turnos activos.
+     *
+     * @return array<int, int>
+     */
+    public function assignedDeviceIds(): array
+    {
+        $fromShifts = PatrolAssignment::where('is_active', true)
+            ->whereHas('crew', fn ($q) => $q->where('users.id', $this->id))
+            ->pluck('device_id')
+            ->toArray();
+
+        $fromPatrols = PreventivePatrol::where('status', 'En Curso')
+            ->where('user_id', $this->id)
+            ->pluck('device_id')
+            ->toArray();
+
+        return array_values(array_unique(array_map('intval', array_merge($fromShifts, $fromPatrols))));
+    }
+
+    /**
+     * Verifica si el usuario está autorizado para visualizar u operar un procedimiento específico.
+     */
+    public function canAccessProcedure(Procedure $procedure): bool
+    {
+        if ($this->hasAnyRole(['Administrador', 'Supervisor'])) {
+            return true;
+        }
+
+        if ($this->hasRole('Operador')) {
+            $allowedSectors = $this->sectors()->pluck('sectors.id')->map(fn ($id) => (int) $id)->toArray();
+
+            return in_array((int) $procedure->sector_id, $allowedSectors, true);
+        }
+
+        if ($this->hasRole('Inspector')) {
+            $assignedDevices = $this->assignedDeviceIds();
+            if (! empty($procedure->device_id) && in_array((int) $procedure->device_id, $assignedDevices, true)) {
+                return true;
+            }
+
+            if ($procedure->patrol_assignment_id) {
+                return PatrolAssignment::where('id', $procedure->patrol_assignment_id)
+                    ->whereHas('crew', fn ($q) => $q->where('users.id', $this->id))
+                    ->exists();
+            }
+
+            return false;
+        }
+
+        return false;
     }
 }

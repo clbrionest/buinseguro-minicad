@@ -427,8 +427,13 @@ class CreateProcedure extends Component
             Call::where('id', $this->call_id)->update(['procedure_id' => $procedure->id]);
         }
 
+        $dispatchedDeviceId = $procedure->device_id ? (int) $procedure->device_id : null;
+
         $this->closeModal();
         $this->dispatch('procedure-created');
+        if ($dispatchedDeviceId) {
+            $this->dispatch('procedure-dispatched', procedureId: $procedure->id, deviceId: $dispatchedDeviceId);
+        }
         session()->flash('message', "Procedimiento Folio #{$procedure->id} ingresado exitosamente.");
     }
 

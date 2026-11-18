@@ -27,7 +27,11 @@ new #[Layout('layouts.guest')] class extends Component
             auth()->user()
         );
 
-        $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+        $defaultRoute = auth()->user()?->isInspectorOnly()
+            ? route('field.inspector', absolute: false)
+            : route('dashboard', absolute: false);
+
+        $this->redirectIntended(default: $defaultRoute, navigate: true);
     }
 }; ?>
 

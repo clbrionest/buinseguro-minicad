@@ -45,6 +45,13 @@ class FieldInspectorPanel extends Component
     {
         $user = Auth::user();
 
+        if ($user && $user->isInspectorOnly()) {
+            $assignedIds = $user->assignedDeviceIds();
+            $this->selected_device_id = $assignedIds[0] ?? '';
+
+            return;
+        }
+
         // Buscar si el usuario actual forma parte de una patrulla activa
         $assignment = PatrolAssignment::where('is_active', true)
             ->whereHas('crew', fn ($q) => $q->where('users.id', $user->id))
@@ -65,6 +72,13 @@ class FieldInspectorPanel extends Component
     {
         if (! $this->selected_device_id) {
             return;
+        }
+
+        $user = Auth::user();
+        if ($user && $user->isInspectorOnly()) {
+            if (! in_array((int) $this->selected_device_id, $user->assignedDeviceIds(), true)) {
+                abort(403, 'Solo puedes cambiar el estado del móvil asignado a tu turno.');
+            }
         }
 
         $allowed = SystemCatalogItem::namesFor('device_statuses', [
@@ -231,6 +245,10 @@ class FieldInspectorPanel extends Component
     public function confirmArrivalFromField($procedureId, $lat = null, $lng = null)
     {
         $procedure = Procedure::findOrFail($procedureId);
+        $user = Auth::user();
+        if ($user && ! $user->canAccessProcedure($procedure)) {
+            abort(403, 'No tienes permisos para operar un procedimiento no asignado a tu móvil.');
+        }
 
         $distance = Procedure::calculateDistanceMeters(
             $procedure->latitude,
@@ -283,6 +301,10 @@ class FieldInspectorPanel extends Component
         ]);
 
         $procedure = Procedure::findOrFail($procedureId);
+        $user = Auth::user();
+        if ($user && ! $user->canAccessProcedure($procedure)) {
+            abort(403, 'No tienes permisos para operar un procedimiento no asignado a tu móvil.');
+        }
 
         if ($this->quick_photo) {
             $path = $this->quick_photo->store('evidences', 'public');
@@ -320,10 +342,17 @@ class FieldInspectorPanel extends Component
 
     public function render()
     {
-        $devices = Device::with(['activePatrolAssignment.sector', 'activePatrolAssignment.crew'])
+        $user = Auth::user();
+        $devicesQuery = Device::with(['activePatrolAssignment.sector', 'activePatrolAssignment.crew'])
             ->withCount('activeProcedures')
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
+
+        if ($user && $user->isInspectorOnly()) {
+            $assignedIds = $user->assignedDeviceIds();
+            $devicesQuery->whereIn('id', ! empty($assignedIds) ? $assignedIds : [-1]);
+        }
+
+        $devices = $devicesQuery->get();
 
         $currentDevice = $this->selected_device_id
             ? $devices->firstWhere('id', (int) $this->selected_device_id)

@@ -2,48 +2,61 @@
 
 namespace App\Livewire;
 
-use Livewire\Component;
-use Livewire\WithFileUploads;
+use App\Models\AuditLog;
+use App\Models\Device;
+use App\Models\Evidence;
+use App\Models\PatrolAssignment;
 use App\Models\Procedure;
 use App\Models\ProcedureLog;
 use App\Models\ProcedureType;
-use App\Models\Evidence;
-use App\Models\Device;
-use App\Models\PatrolAssignment;
+use App\Models\SystemCatalogItem;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class ShowProcedure extends Component
 {
     use WithFileUploads;
 
     public Procedure $procedure; // El caso actual
-    
+
     // Variables para el formulario de la nueva bitácora
     public $action_type = 'Novedad';
+
     public $description = '';
+
     public $status = '';
+
     public $photo;
+
     // Nueva variable para el despacho tardío
     public $new_device_id = '';
+
     public $parent_id_to_link = '';
 
     // Categorización Operativa y Metadatos Dinámicos al operar el caso
     public $operational_procedure_type_id = '';
+
     public $currentMetaFields = [];
+
     public $metaValues = [];
+
     public $customMetaLabel = '';
+
     public $customMetaValue = '';
 
     // Se ejecuta al cargar la página y recibe el ID de la URL
     public function mount(Procedure $procedure)
     {
         $user = auth()->user();
-        if ($user && !$user->hasAnyRole(['Administrador', 'Supervisor'])) {
-            $allowedSectors = $user->sectors->pluck('id')->toArray();
-            if (!in_array($procedure->sector_id, $allowedSectors)) {
-                abort(403, 'No tienes permisos para visualizar procedimientos de este sector.');
-            }
+        if ($user && ! $user->canAccessProcedure($procedure)) {
+            AuditLog::record(
+                'security.denied',
+                'Procedimientos',
+                "Intento no autorizado de visualizar u operar Procedimiento #{$procedure->id} por {$user->name}."
+            );
+            abort(403, 'No tienes permisos para visualizar ni operar este procedimiento.');
         }
 
         // Cargamos las relaciones necesarias, incluyendo la patrulla y tipificación inicial
@@ -71,7 +84,7 @@ class ShowProcedure extends Component
 
         // Incluir cualquier metadato adicional guardado previamente aunque no esté en el esquema base
         foreach ($storedMeta as $k => $v) {
-            if (!in_array($k, $schemaKeys) && $v !== '' && !is_null($v)) {
+            if (! in_array($k, $schemaKeys) && $v !== '' && ! is_null($v)) {
                 $schema[] = [
                     'key' => $k,
                     'label' => ucwords(str_replace('_', ' ', $k)),
@@ -109,11 +122,11 @@ class ShowProcedure extends Component
 
         $key = Str::slug($label, '_');
         if ($key === '') {
-            $key = 'dato_' . (count($this->currentMetaFields) + 1);
+            $key = 'dato_'.(count($this->currentMetaFields) + 1);
         }
 
         $exists = collect($this->currentMetaFields)->contains('key', $key);
-        if (!$exists) {
+        if (! $exists) {
             $this->currentMetaFields[] = [
                 'key' => $key,
                 'label' => $label,
@@ -133,15 +146,15 @@ class ShowProcedure extends Component
         $newTypeId = (int) ($this->operational_procedure_type_id ?: $oldTypeId);
 
         $cleanMeta = collect($this->metaValues)
-            ->filter(fn($val) => !is_null($val) && trim((string) $val) !== '')
+            ->filter(fn ($val) => ! is_null($val) && trim((string) $val) !== '')
             ->toArray();
 
         $updates = [
             'procedure_type_id' => $newTypeId,
-            'metadata' => !empty($cleanMeta) ? $cleanMeta : null,
+            'metadata' => ! empty($cleanMeta) ? $cleanMeta : null,
         ];
 
-        if (!$this->procedure->initial_procedure_type_id) {
+        if (! $this->procedure->initial_procedure_type_id) {
             $updates['initial_procedure_type_id'] = $oldTypeId;
         }
 
@@ -155,14 +168,14 @@ class ShowProcedure extends Component
             $logParts[] = "Recategorización operativa del caso: cambia de \"{$oldName}\" a \"{$newName}\".";
         }
 
-        if (!empty($cleanMeta)) {
+        if (! empty($cleanMeta)) {
             $summary = collect($this->procedure->formatted_metadata)
-                ->map(fn($m) => "{$m['label']}: {$m['value']}")
+                ->map(fn ($m) => "{$m['label']}: {$m['value']}")
                 ->join(' | ');
             $logParts[] = "Antecedentes/Metadatos actualizados: [{$summary}].";
         }
 
-        if (!empty($logParts)) {
+        if (! empty($logParts)) {
             ProcedureLog::create([
                 'procedure_id' => $this->procedure->id,
                 'user_id' => Auth::id(),
@@ -170,10 +183,10 @@ class ShowProcedure extends Component
                 'description' => implode(' ', $logParts),
             ]);
 
-            \App\Models\AuditLog::record(
+            AuditLog::record(
                 $oldTypeId !== $newTypeId ? 'procedure.recategorized' : 'procedure.metadata_updated',
                 'Procedimientos',
-                "Procedimiento #{$this->procedure->id}: " . implode(' ', $logParts),
+                "Procedimiento #{$this->procedure->id}: ".implode(' ', $logParts),
                 $this->procedure,
                 ['old_type_id' => $oldTypeId, 'new_type_id' => $newTypeId, 'metadata' => $cleanMeta]
             );
@@ -188,7 +201,7 @@ class ShowProcedure extends Component
     public function assignDevice()
     {
         $this->validate([
-            'new_device_id' => 'required|exists:devices,id'
+            'new_device_id' => 'required|exists:devices,id',
         ]);
 
         // 1. Buscamos si hay un turno activo para este móvil
@@ -214,7 +227,7 @@ class ShowProcedure extends Component
             'description' => "Se asigna y despacha el móvil $deviceName al lugar del procedimiento.",
         ]);
 
-        \App\Models\AuditLog::record(
+        AuditLog::record(
             'procedure.dispatched',
             'Procedimientos',
             "Despacho de móvil {$deviceName} al Procedimiento #{$this->procedure->id}.",
@@ -223,10 +236,13 @@ class ShowProcedure extends Component
         );
 
         // Refrescamos la página y limpiamos
+        $dispatchedDeviceId = (int) $this->new_device_id;
         $this->reset('new_device_id');
         $this->status = 'En Camino';
         $this->procedure->refresh();
-        
+
+        $this->dispatch('procedure-dispatched', procedureId: $this->procedure->id, deviceId: $dispatchedDeviceId);
+
         session()->flash('message', 'Móvil despachado exitosamente.');
     }
 
@@ -257,9 +273,9 @@ class ShowProcedure extends Component
             ]);
         }
 
-        $distanceText = !is_null($distance)
+        $distanceText = ! is_null($distance)
             ? " (Distancia georreferenciada al punto: {$distance} m)."
-            : ($lat && $lng ? " (GPS: {$lat}, {$lng})." : " (Sin señal GPS disponible).");
+            : ($lat && $lng ? " (GPS: {$lat}, {$lng})." : ' (Sin señal GPS disponible).');
 
         ProcedureLog::create([
             'procedure_id' => $this->procedure->id,
@@ -290,8 +306,8 @@ class ShowProcedure extends Component
         ]);
 
         $gpsNote = $this->procedure->mobile_arrived_at
-            ? " (Validando reporte GPS previo del móvil" . (!is_null($this->procedure->mobile_arrival_distance) ? " a {$this->procedure->mobile_arrival_distance} m" : "") . ")."
-            : " (Confirmación radial directa por Central).";
+            ? ' (Validando reporte GPS previo del móvil'.(! is_null($this->procedure->mobile_arrival_distance) ? " a {$this->procedure->mobile_arrival_distance} m" : '').').'
+            : ' (Confirmación radial directa por Central).';
 
         ProcedureLog::create([
             'procedure_id' => $this->procedure->id,
@@ -300,7 +316,7 @@ class ShowProcedure extends Component
             'description' => "Operadora confirma móvil En el Lugar. Tiempo de respuesta/arribo: {$arrivalMins} min{$gpsNote}",
         ]);
 
-        \App\Models\AuditLog::record(
+        AuditLog::record(
             'procedure.arrival_confirmed',
             'Procedimientos',
             "Confirmación de arribo en Central para Procedimiento #{$this->procedure->id} (Tiempo respuesta: {$arrivalMins} min).",
@@ -321,23 +337,23 @@ class ShowProcedure extends Component
             'description' => 'required_without:photo', // El texto es obligatorio solo si NO hay foto
             'photo' => 'nullable|image|max:5120', // Máximo 5MB por foto
         ]);
-        
+
         if ($this->photo) {
             // Guarda en storage/app/public/evidences y devuelve la ruta
             $path = $this->photo->store('evidences', 'public');
-            
+
             Evidence::create([
                 'procedure_id' => $this->procedure->id,
                 'user_id' => Auth::id(),
                 'file_path' => $path,
             ]);
-            
+
             // Si mandó foto pero no escribió descripción, le ponemos una automática
             if (empty($this->description)) {
                 $this->description = 'Adjunta evidencia fotográfica.';
             }
         }
-        
+
         // 2. Guardar la nueva anotación en la bitácora
         ProcedureLog::create([
             'procedure_id' => $this->procedure->id,
@@ -359,25 +375,25 @@ class ShowProcedure extends Component
             $updates['status'] = $this->status;
         }
 
-        if ($this->status === 'En Camino' && !$this->procedure->dispatched_at) {
+        if ($this->status === 'En Camino' && ! $this->procedure->dispatched_at) {
             $updates['dispatched_at'] = now();
         }
 
-        if ($this->status === 'En el Lugar' && !$this->procedure->arrived_at) {
+        if ($this->status === 'En el Lugar' && ! $this->procedure->arrived_at) {
             $updates['arrived_at'] = now();
-            if (!$this->procedure->dispatched_at) {
+            if (! $this->procedure->dispatched_at) {
                 $updates['dispatched_at'] = $this->procedure->created_at;
             }
         }
 
-        if ($this->status === 'Cerrado' && !$this->procedure->closed_at) {
+        if ($this->status === 'Cerrado' && ! $this->procedure->closed_at) {
             $updates['closed_at'] = now();
         }
 
-        if (!empty($updates)) {
+        if (! empty($updates)) {
             $this->procedure->update($updates);
             if ($oldStatus !== $this->status) {
-                \App\Models\AuditLog::record(
+                AuditLog::record(
                     'procedure.status_changed',
                     'Procedimientos',
                     "Cambio de estado en Procedimiento #{$this->procedure->id}: de \"{$oldStatus}\" a \"{$this->status}\".",
@@ -396,12 +412,13 @@ class ShowProcedure extends Component
     public function linkToParent()
     {
         $this->validate([
-            'parent_id_to_link' => 'required|exists:procedures,id|not_in:' . $this->procedure->id,
+            'parent_id_to_link' => 'required|exists:procedures,id|not_in:'.$this->procedure->id,
         ]);
 
-        $parentCase = \App\Models\Procedure::find($this->parent_id_to_link);
+        $parentCase = Procedure::find($this->parent_id_to_link);
         if ($parentCase->parent_id) {
-            $this->addError('parent_id_to_link', 'El caso destino ya es un anexo. Por favor, vincula directamente al Caso Principal #' . $parentCase->parent_id);
+            $this->addError('parent_id_to_link', 'El caso destino ya es un anexo. Por favor, vincula directamente al Caso Principal #'.$parentCase->parent_id);
+
             return;
         }
 
@@ -413,25 +430,25 @@ class ShowProcedure extends Component
         ]);
 
         // 3. Bitácora en el Hijo
-        \App\Models\ProcedureLog::create([
+        ProcedureLog::create([
             'procedure_id' => $this->procedure->id,
-            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'user_id' => Auth::id(),
             'action_type' => 'Cierre por Vinculación',
-            'description' => 'Caso cerrado operativamente. Se anexó al Procedimiento Principal #' . $this->parent_id_to_link,
+            'description' => 'Caso cerrado operativamente. Se anexó al Procedimiento Principal #'.$this->parent_id_to_link,
         ]);
 
         // 4. Bitácora en el Padre
-        \App\Models\ProcedureLog::create([
+        ProcedureLog::create([
             'procedure_id' => $this->parent_id_to_link,
-            'user_id' => \Illuminate\Support\Facades\Auth::id(),
+            'user_id' => Auth::id(),
             'action_type' => 'Anexo Recibido',
-            'description' => 'Se vinculó el Procedimiento Anexo #' . $this->procedure->id . ' a este caso principal.',
+            'description' => 'Se vinculó el Procedimiento Anexo #'.$this->procedure->id.' a este caso principal.',
         ]);
 
         $this->status = 'Cerrado';
         $this->reset('parent_id_to_link');
         $this->procedure->refresh();
-        
+
         session()->flash('message', 'Procedimiento vinculado y cerrado exitosamente.');
     }
 
@@ -450,8 +467,8 @@ class ShowProcedure extends Component
         }
 
         $prefix = "Resolución Oficial: [{$resolution}]. ";
-        if (!str_starts_with($this->description, 'Resolución Oficial:')) {
-            $this->description = trim($prefix . $this->description);
+        if (! str_starts_with($this->description, 'Resolución Oficial:')) {
+            $this->description = trim($prefix.$this->description);
         } else {
             $this->description = preg_replace('/^Resolución Oficial:\s*\[[^\]]+\]\.\s*/u', $prefix, $this->description);
         }
@@ -461,7 +478,7 @@ class ShowProcedure extends Component
     {
         // Historial previo de otros procedimientos del mismo teléfono
         $previousCallerCases = collect();
-        if (!empty($this->procedure->caller_phone)) {
+        if (! empty($this->procedure->caller_phone)) {
             $previousCallerCases = Procedure::with('procedureType')
                 ->where('caller_phone', $this->procedure->caller_phone)
                 ->where('id', '!=', $this->procedure->id)
@@ -470,7 +487,7 @@ class ShowProcedure extends Component
                 ->get();
         }
 
-        $logActions = \App\Models\SystemCatalogItem::namesFor('procedure_log_actions', [
+        $logActions = SystemCatalogItem::namesFor('procedure_log_actions', [
             'Novedad',
             'Llegada al lugar',
             'Contacto con Recurrente',
@@ -478,7 +495,7 @@ class ShowProcedure extends Component
             'Cierre de Procedimiento',
         ]);
 
-        $resolutions = \App\Models\SystemCatalogItem::namesFor('procedure_resolutions', []);
+        $resolutions = SystemCatalogItem::namesFor('procedure_resolutions', []);
 
         return view('livewire.show-procedure', [
             'devices' => Device::withCount('activeProcedures')->orderBy('name')->get(),

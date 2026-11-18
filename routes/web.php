@@ -24,9 +24,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return auth()->check()
-        ? redirect()->route('dashboard')
-        : redirect()->route('login');
+    if (! auth()->check()) {
+        return redirect()->route('login');
+    }
+
+    if (auth()->user()?->isInspectorOnly()) {
+        return redirect()->route('field.inspector');
+    }
+
+    return redirect()->route('dashboard');
 });
 
 Route::view('dashboard', 'dashboard')
@@ -55,11 +61,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/procedimientos/{procedure}/ficha', function (Procedure $procedure) {
         $user = auth()->user();
-        if ($user && ! $user->hasAnyRole(['Administrador', 'Supervisor'])) {
-            $allowedSectors = $user->sectors->pluck('id')->toArray();
-            if (! in_array($procedure->sector_id, $allowedSectors)) {
-                abort(403, 'No tienes permisos para visualizar procedimientos de este sector.');
-            }
+        if ($user && ! $user->canAccessProcedure($procedure)) {
+            abort(403, 'No tienes permisos para visualizar este procedimiento.');
         }
         $procedure->load(['sector', 'procedureType', 'initialProcedureType', 'device', 'origin', 'user', 'logs.user', 'evidences.user', 'patrolAssignment.crew', 'children']);
 
@@ -68,6 +71,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/terreno', FieldInspectorPanel::class)
         ->name('field.inspector');
+
+    Route::redirect('/modo-terreno', '/terreno');
 
     Route::get('/mapa-operativo', LiveOperationalMap::class)
         ->name('map.live');
