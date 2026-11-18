@@ -1,0 +1,172 @@
+{
+    "version": "1.3.0",
+    "released_at": "2026-11-17",
+    "branch": "main",
+    "last_commit": "3c5d3a0",
+    "releases": [
+        {
+            "version": "1.3.0",
+            "date": "2026-11-17",
+            "type": "minor",
+            "title": "Mapa Operativo Táctico, Patrullajes Preventivos y Versionado SemVer",
+            "pr_refs": [
+                "feat/patrullaje",
+                "feat/mapa-operativo",
+                "chore/semver"
+            ],
+            "changes": [
+                {
+                    "type": "feat",
+                    "scope": "patrullaje",
+                    "description": "Separación de Patrullajes Preventivos con validación de hitos por GPS, inicio de procedimientos vinculados e informe oficial imprimible."
+                },
+                {
+                    "type": "feat",
+                    "scope": "mapa-operativo",
+                    "description": "Rediseño del Mapa Operativo en Vivo a pantalla completa con HUD táctico, marcadores vectoriales SVG y selector de skins cartográficos."
+                },
+                {
+                    "type": "feat",
+                    "scope": "semver",
+                    "description": "Implementación de Semantic Versioning (SemVer) y generación automática de Changelog sincronizado con la rama main."
+                }
+            ]
+        },
+        {
+            "version": "1.2.0",
+            "date": "2026-11-17",
+            "type": "minor",
+            "title": "Integración Telefónica SFTP, Vinculación de Casos y Auditoría Dual",
+            "pr_refs": [
+                "fix/ui-fixes",
+                "fix/pbx-webservice"
+            ],
+            "changes": [
+                {
+                    "type": "feat",
+                    "scope": "telefonia",
+                    "description": "Modal global para creación de procedimientos desde alertas de llamadas entrantes y vinculación de grabaciones desde el historial."
+                },
+                {
+                    "type": "feat",
+                    "scope": "auditoria",
+                    "description": "Registro dual de auditoría y errores del sistema en base de datos y canal dedicado de logs."
+                },
+                {
+                    "type": "fix",
+                    "scope": "sftp-audio",
+                    "description": "Normalización de directorio raíz SFTP (/monitor) para grabaciones y timbre sintetizado Web Audio API con eventos Laravel Reverb."
+                },
+                {
+                    "type": "fix",
+                    "scope": "ui",
+                    "description": "Estandarización de terminología operativa en vistas y actualización de números de emergencia (1426 y 800 00 2015)."
+                }
+            ]
+        },
+        {
+            "version": "1.1.2",
+            "date": "2026-11-16",
+            "type": "patch",
+            "title": "Automatización de Despliegue y Matriz PHP en CI",
+            "pr_refs": [
+                "PR #7",
+                "PR #6"
+            ],
+            "changes": [
+                {
+                    "type": "chore",
+                    "scope": "ci-deploy",
+                    "description": "PR #7 (chore/auto-deploy): Configuración de flujo de auto-deploy y ajuste de versiones de PHP (8.3 y 8.4) en la matriz de integración continua."
+                },
+                {
+                    "type": "fix",
+                    "scope": "ci-vite",
+                    "description": "PR #6 (fix/ci-vite-manifest): Consolidación de compilación de recursos Vite previo a pruebas automatizadas."
+                }
+            ]
+        },
+        {
+            "version": "1.1.1",
+            "date": "2026-10-23",
+            "type": "patch",
+            "title": "Integración Continua GitHub Actions y Entorno Docker",
+            "pr_refs": [
+                "PR #5",
+                "PR #4",
+                "PR #3",
+                "PR #1"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "ci",
+                    "description": "PR #5 (fix/ci-vite-manifest): Compilación de manifiesto Vite antes de la ejecución de PHPUnit en GitHub Actions."
+                },
+                {
+                    "type": "ci",
+                    "scope": "workflows",
+                    "description": "PR #4 (chore/github-actions): Configuración de validación automática de Laravel, Composer y Vite en CI."
+                },
+                {
+                    "type": "chore",
+                    "scope": "ia",
+                    "description": "PR #3 (chore/configuracion-ia): Incorporación de guías y reglas de arquitectura para desarrollo en Laravel."
+                },
+                {
+                    "type": "chore",
+                    "scope": "docker",
+                    "description": "PR #1 (chore/entorno-desarrollo): Configuración de contenedores Docker Compose (PHP 8.4 y MySQL 8.4) para desarrollo."
+                }
+            ]
+        },
+        {
+            "version": "1.1.0",
+            "date": "2026-10-20",
+            "type": "minor",
+            "title": "Buin Seguro CAD Design System v1.0 y Gestión de Sala",
+            "pr_refs": [
+                "feat/design-system",
+                "feat/shifts"
+            ],
+            "changes": [
+                {
+                    "type": "feat",
+                    "scope": "branding",
+                    "description": "Incorporación de escudo institucional en barra de navegación, acceso y vistas públicas."
+                },
+                {
+                    "type": "feat",
+                    "scope": "ui",
+                    "description": "Implementación de Buin Seguro CAD Design System v1.0 con soporte de temas Claro, Oscuro y Sistema."
+                },
+                {
+                    "type": "feat",
+                    "scope": "turnos",
+                    "description": "Mantenedor de equipamiento de sala con soporte de baja lógica y restauración en entregas de turno."
+                },
+                {
+                    "type": "feat",
+                    "scope": "catalogos",
+                    "description": "Poblado inicial de sectores, orígenes, tipos de procedimiento y dotación desde Planilla Central 2026."
+                }
+            ]
+        },
+        {
+            "version": "1.0.0",
+            "date": "2026-10-20",
+            "type": "major",
+            "title": "Lanzamiento Inicial BuinSeguro MiniCAD",
+            "pr_refs": [
+                "v1.0.0"
+            ],
+            "changes": [
+                {
+                    "type": "feat",
+                    "scope": "core",
+                    "description": "Lanzamiento inicial de la plataforma de despacho, recepción de llamadas, gestión de procedimientos y consola de terreno."
+                }
+            ]
+        }
+    ]
+}

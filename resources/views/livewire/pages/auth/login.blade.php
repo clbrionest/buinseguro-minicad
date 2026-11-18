@@ -34,6 +34,7 @@ new #[Layout('layouts.guest')] class extends Component
 <div x-data="{
         clock: '',
         dateStr: '',
+        showFullChangelog: false,
         init() {
             const update = () => {
                 const now = new Date();
@@ -50,8 +51,11 @@ new #[Layout('layouts.guest')] class extends Component
             <img src="{{ asset('escudo.svg') }}" alt="Escudo Municipalidad de Buin" class="h-full w-auto object-contain">
         </div>
         <div class="min-w-0 flex-1">
-            <h2 class="text-base sm:text-lg font-extrabold text-ui-fg tracking-tight flex items-center gap-1.5">
+            <h2 class="text-base sm:text-lg font-extrabold text-ui-fg tracking-tight flex items-center gap-2">
                 <span>MiniCAD</span>
+                <span class="bg-brand-lime text-brand-black text-[10px] font-black font-mono px-2 py-0.5 rounded shadow-2xs" title="Versión SemVer Actual">
+                    {{ $cadVersionTag ?? 'v1.3.0' }}
+                </span>
             </h2>
             <p class="text-xs text-ui-muted truncate">Dirección de Seguridad Pública • Municipalidad de Buin</p>
         </div>
@@ -131,4 +135,76 @@ new #[Layout('layouts.guest')] class extends Component
         <i class="fa-solid fa-circle-info text-brand-cobalt dark:text-brand-lime mt-0.5" aria-hidden="true"></i>
         <span>Al ingresar, recuerde verificar la recepción de su <strong>Turno de Sala</strong> y el estado de los equipos de la Sala de Monitoreo</span>
     </div>
+
+    <!-- Bloque de Versión SemVer y Resumen de Cambios (Sincronizado desde main) -->
+    @if(!empty($cadLatestRelease))
+        <div class="mt-4 pt-3.5 border-t border-ui-border">
+            <div class="bg-ui-subtle/80 border border-ui-border rounded-xl p-3 text-left">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                        <span class="bg-brand-cobalt text-brand-white dark:bg-brand-lime dark:text-brand-black font-mono font-black text-[10px] px-2 py-0.5 rounded">
+                            {{ $cadVersionTag ?? 'v1.3.0' }}
+                        </span>
+                        <span class="text-[11px] font-extrabold text-ui-fg truncate">
+                            {{ $cadLatestRelease['title'] ?? 'Novedades del Sistema' }}
+                        </span>
+                    </div>
+                    <span class="text-[10px] font-mono text-ui-muted shrink-0">{{ $cadLatestRelease['date'] ?? '' }}</span>
+                </div>
+
+                <!-- Lista resumida de últimos cambios -->
+                <ul class="space-y-1.5 text-[11px] text-ui-muted">
+                    @foreach(array_slice($cadLatestRelease['changes'] ?? [], 0, 3) as $chg)
+                        <li class="flex items-start gap-1.5 leading-snug">
+                            <span class="mt-0.5 inline-block px-1.5 py-0.2 rounded text-[9px] font-black uppercase shrink-0 {{ ($chg['type'] ?? '') === 'feat' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : (($chg['type'] ?? '') === 'fix' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-blue-500/15 text-blue-600 dark:text-blue-400') }}">
+                                {{ strtoupper($chg['type'] ?? 'cambio') }}
+                            </span>
+                            <span class="text-ui-fg/90">{{ $chg['description'] ?? '' }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <!-- Botón para ver el historial de PRs y versiones anteriores -->
+                @if(!empty($cadReleases) && count($cadReleases) > 1)
+                    <div class="mt-2.5 pt-2 border-t border-ui-border/70">
+                        <button type="button"
+                                @click="showFullChangelog = !showFullChangelog"
+                                class="w-full flex items-center justify-between text-[10px] font-bold text-brand-cobalt dark:text-brand-lime hover:underline">
+                            <span>
+                                <i class="fa-solid fa-code-branch mr-1" aria-hidden="true"></i>
+                                <span x-text="showFullChangelog ? 'Ocultar historial de versiones (PRs)' : 'Ver historial completo de cambios ({{ count($cadReleases) }} versiones)'"></span>
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-[9px] transition-transform" :class="showFullChangelog ? 'rotate-180' : ''" aria-hidden="true"></i>
+                        </button>
+
+                        <div x-show="showFullChangelog"
+                             x-transition
+                             style="display: none;"
+                             class="mt-2.5 space-y-2.5 max-h-48 overflow-y-auto pr-1 border-t border-ui-border/60 pt-2">
+                            @foreach(array_slice($cadReleases, 1) as $rel)
+                                <div class="text-[10px] bg-ui-card p-2 rounded-lg border border-ui-border">
+                                    <div class="flex items-center justify-between font-bold text-ui-fg mb-1">
+                                        <span class="font-mono text-brand-cobalt dark:text-brand-lime">v{{ $rel['version'] }} — {{ $rel['title'] ?? '' }}</span>
+                                        <span class="font-mono text-ui-muted">{{ $rel['date'] }}</span>
+                                    </div>
+                                    @if(!empty($rel['pr_refs']))
+                                        <div class="flex flex-wrap gap-1 mb-1">
+                                            @foreach($rel['pr_refs'] as $prRef)
+                                                <span class="bg-ui-subtle border border-ui-border px-1.5 py-0.2 rounded font-mono text-[9px] text-ui-muted">{{ $prRef }}</span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                    <ul class="space-y-0.5 text-ui-muted list-disc list-inside">
+                                        @foreach($rel['changes'] ?? [] as $c)
+                                            <li>{{ $c['description'] }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endif
 </div>
