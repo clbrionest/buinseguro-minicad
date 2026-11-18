@@ -58,7 +58,7 @@ new class extends Component
                             ? 'bg-brand-lime text-brand-black font-extrabold px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 shadow-xs transition whitespace-nowrap'
                             : 'text-brand-white/85 hover:bg-white/10 hover:text-brand-white font-semibold px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition whitespace-nowrap';
 
-                        $opsActive = request()->routeIs('field.inspector') || request()->routeIs('events.manage') || request()->routeIs('patrols.manage');
+                        $opsActive = request()->routeIs('field.inspector') || request()->routeIs('events.manage') || request()->routeIs('patrols.manage') || request()->routeIs('patrols.preventive*');
                         $reportsActive = request()->routeIs('reports.calls') || request()->routeIs('reports.index') || request()->routeIs('audit.logs');
                         $adminActive = request()->routeIs('catalogs.manage') || request()->routeIs('landmarks.manage') || request()->routeIs('users.manage');
                     @endphp
@@ -103,6 +103,15 @@ new class extends Component
                              x-transition:leave-end="opacity-0 scale-95"
                              style="display: none;"
                              class="absolute left-0 mt-1.5 w-64 rounded-xl bg-ui-card text-ui-fg border border-ui-border shadow-xl py-1.5 z-50">
+                            <a href="{{ route('patrols.preventive') }}"
+                               class="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold {{ request()->routeIs('patrols.preventive*') ? 'bg-brand-cobalt/10 text-brand-cobalt dark:bg-brand-cobalt-mid/20 dark:text-brand-cobalt-light' : 'text-ui-fg hover:bg-ui-subtle' }}">
+                                <i class="fa-solid fa-shield-halved w-4 text-center text-brand-lime" aria-hidden="true"></i>
+                                <div>
+                                    <div class="font-bold">Patrullajes Preventivos</div>
+                                    <div class="text-[10px] text-ui-muted">Rondas, hitos y control de ruta</div>
+                                </div>
+                            </a>
+
                             <a href="{{ route('field.inspector') }}"
                                class="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold {{ request()->routeIs('field.inspector') ? 'bg-brand-cobalt/10 text-brand-cobalt dark:bg-brand-cobalt-mid/20 dark:text-brand-cobalt-light' : 'text-ui-fg hover:bg-ui-subtle' }}">
                                 <i class="fa-solid fa-mobile-screen-button w-4 text-center text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i>
@@ -335,6 +344,9 @@ new class extends Component
                 <i class="fa-solid fa-clipboard-check w-4 text-center" aria-hidden="true"></i> Entrega de Turno
             </a>
             @endhasanyrole
+            <a href="{{ route('patrols.preventive') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('patrols.preventive*') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
+                <i class="fa-solid fa-shield-halved w-4 text-center" aria-hidden="true"></i> Patrullajes Preventivos
+            </a>
             <a href="{{ route('field.inspector') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('field.inspector') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
                 <i class="fa-solid fa-mobile-screen-button w-4 text-center" aria-hidden="true"></i> Modo Terreno
             </a>

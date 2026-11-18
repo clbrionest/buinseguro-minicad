@@ -57,6 +57,21 @@
                         </a>
                     </div>
                 @endif
+
+                @if($procedure->preventive_patrol_id)
+                    <div class="bg-emerald-50 dark:bg-emerald-950/40 border-l-4 border-emerald-500 text-emerald-800 dark:text-emerald-300 p-3.5 mb-4 rounded-lg flex justify-between items-center">
+                        <div>
+                            <h3 class="font-bold text-xs uppercase flex items-center gap-1.5">
+                                <i class="fa-solid fa-shield-halved"></i>
+                                <span>Originado en Patrullaje Preventivo</span>
+                            </h3>
+                            <p class="text-xs">Iniciado durante ronda preventiva de terreno.</p>
+                        </div>
+                        <a href="{{ route('patrols.preventive.show', $procedure->preventive_patrol_id) }}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-3 rounded text-xs transition">
+                            {{ $procedure->preventivePatrol?->folio ?? 'Patrullaje #'.$procedure->preventive_patrol_id }} →
+                        </a>
+                    </div>
+                @endif
                             
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between">

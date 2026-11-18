@@ -114,6 +114,12 @@
                 <i class="fa-solid fa-plus" aria-hidden="true"></i>
                 <span>Crear Procedimiento</span>
             </button>
+            <button type="button"
+                    wire:click="$dispatch('open-create-patrol-modal')"
+                    class="bg-brand-cobalt hover:bg-brand-cobalt-deep text-brand-white font-extrabold py-2 px-4 rounded-lg shadow-xs text-xs inline-flex items-center gap-1.5 transition min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ui-focus">
+                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                <span>Ingresar Patrullaje Preventivo</span>
+            </button>
         </div>
     </div>
 

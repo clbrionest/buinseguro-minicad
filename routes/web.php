@@ -1,14 +1,27 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Livewire\ShowProcedure;
+use App\Http\Controllers\Api\CallWebhookController;
+use App\Http\Controllers\CallAudioController;
+use App\Livewire\AuditLogsViewer;
+use App\Livewire\CallsReport;
+use App\Livewire\FieldInspectorPanel;
+use App\Livewire\LiveOperationalMap;
 use App\Livewire\ManageCatalogs;
+use App\Livewire\ManageLandmarks;
+use App\Livewire\ManageOperationalEvents;
+use App\Livewire\ManageOperatorShifts;
+use App\Livewire\ManagePatrols;
+use App\Livewire\ManagePreventivePatrols;
 use App\Livewire\ManageUsers;
 use App\Livewire\ReportsOverview;
-use App\Http\Controllers\Api\CallWebhookController;
-use App\Livewire\CallsReport;
-use App\Http\Controllers\CallAudioController;
-
+use App\Livewire\ShowPreventivePatrol;
+use App\Livewire\ShowProcedure;
+use App\Mail\ShiftClosedReportMail;
+use App\Models\OperatorShift;
+use App\Models\PreventivePatrol;
+use App\Models\Procedure;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return auth()->check()
@@ -24,11 +37,12 @@ Route::middleware(['auth'])->group(function () {
     Route::view('profile', 'profile')
         ->name('profile');
 
-    Route::post('/profile/theme', function (\Illuminate\Http\Request $request) {
+    Route::post('/profile/theme', function (Request $request) {
         $validated = $request->validate([
             'theme' => ['required', 'string', 'in:light,dark,system'],
         ]);
         $request->user()->update(['theme_preference' => $validated['theme']]);
+
         return response()->json(['status' => 'ok', 'theme' => $validated['theme']]);
     })->name('profile.theme');
 
@@ -39,41 +53,62 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/procedimientos/{procedure}', ShowProcedure::class)
         ->name('procedures.show');
 
-    Route::get('/procedimientos/{procedure}/ficha', function (\App\Models\Procedure $procedure) {
+    Route::get('/procedimientos/{procedure}/ficha', function (Procedure $procedure) {
         $user = auth()->user();
-        if ($user && !$user->hasAnyRole(['Administrador', 'Supervisor'])) {
+        if ($user && ! $user->hasAnyRole(['Administrador', 'Supervisor'])) {
             $allowedSectors = $user->sectors->pluck('id')->toArray();
-            if (!in_array($procedure->sector_id, $allowedSectors)) {
+            if (! in_array($procedure->sector_id, $allowedSectors)) {
                 abort(403, 'No tienes permisos para visualizar procedimientos de este sector.');
             }
         }
         $procedure->load(['sector', 'procedureType', 'initialProcedureType', 'device', 'origin', 'user', 'logs.user', 'evidences.user', 'patrolAssignment.crew', 'children']);
+
         return view('procedures.print', compact('procedure'));
     })->name('procedures.print');
 
-    Route::get('/terreno', \App\Livewire\FieldInspectorPanel::class)
+    Route::get('/terreno', FieldInspectorPanel::class)
         ->name('field.inspector');
 
-    Route::get('/mapa-operativo', \App\Livewire\LiveOperationalMap::class)
+    Route::get('/mapa-operativo', LiveOperationalMap::class)
         ->name('map.live');
+
+    Route::get('/patrullajes-preventivos', ManagePreventivePatrols::class)
+        ->name('patrols.preventive');
+
+    Route::get('/patrullajes-preventivos/{patrol}', ShowPreventivePatrol::class)
+        ->name('patrols.preventive.show');
+
+    Route::get('/patrullajes-preventivos/{patrol}/imprimir', function (PreventivePatrol $patrol) {
+        $user = auth()->user();
+        if ($user && ! $user->hasAnyRole(['Administrador', 'Supervisor'])) {
+            $allowedSectors = $user->sectors->pluck('id')->toArray();
+            if (! in_array($patrol->sector_id, $allowedSectors)) {
+                abort(403, 'No tienes permisos para visualizar patrullajes de este sector.');
+            }
+        }
+        $patrol->load(['device', 'sector', 'user', 'patrolAssignment.crew', 'checkpoints.landmark', 'checkpoints.validatedBy', 'procedures.procedureType']);
+
+        return view('patrols.print', compact('patrol'));
+    })->name('patrols.preventive.print');
 
     Route::get('/calls/{call}/play', [CallAudioController::class, 'play'])
         ->name('calls.play');
 
     // Historial de llamadas, Turnos de Sala y Eventos Masivos / Contingencias: Administrador, Supervisor y Operador
     Route::middleware(['role:Administrador|Supervisor|Operador'])->group(function () {
-        Route::get('/turno-sala', \App\Livewire\ManageOperatorShifts::class)
+        Route::get('/turno-sala', ManageOperatorShifts::class)
             ->name('shifts.manage');
 
-        Route::get('/turno-sala/{shift}/reporte-email', function (\App\Models\OperatorShift $shift) {
+        Route::get('/turno-sala/{shift}/reporte-email', function (OperatorShift $shift) {
             $shift->load(['openedBy', 'closedBy', 'receivedBy']);
-            return (new \App\Mail\ShiftClosedReportMail($shift))->render();
+
+            return (new ShiftClosedReportMail($shift))->render();
         })->name('shifts.email-preview');
 
         Route::get('/reportes/llamadas', CallsReport::class)
             ->name('reports.calls');
 
-        Route::get('/eventos-masivos', \App\Livewire\ManageOperationalEvents::class)
+        Route::get('/eventos-masivos', ManageOperationalEvents::class)
             ->name('events.manage');
     });
 
@@ -82,10 +117,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reportes', ReportsOverview::class)
             ->name('reports.index');
 
-        Route::get('/turnos', App\Livewire\ManagePatrols::class)
+        Route::get('/turnos', ManagePatrols::class)
             ->name('patrols.manage');
 
-        Route::get('/auditoria', \App\Livewire\AuditLogsViewer::class)
+        Route::get('/auditoria', AuditLogsViewer::class)
             ->name('audit.logs');
     });
 
@@ -97,7 +132,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/usuarios', ManageUsers::class)
             ->name('users.manage');
 
-        Route::get('/hitos', App\Livewire\ManageLandmarks::class)
+        Route::get('/hitos', ManageLandmarks::class)
             ->name('landmarks.manage');
     });
 });

@@ -8,6 +8,7 @@ use App\Models\Device;
 use App\Models\Landmark;
 use App\Models\Origin;
 use App\Models\PatrolAssignment;
+use App\Models\PreventivePatrol;
 use App\Models\Procedure;
 use App\Models\ProcedureLog;
 use App\Models\ProcedureType;
@@ -17,7 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
- // <-- ¡NUEVA IMPORTACIÓN VITAL PARA ESCUCHAR EVENTOS!
+// <-- ¡NUEVA IMPORTACIÓN VITAL PARA ESCUCHAR EVENTOS!
 
 class CreateProcedure extends Component
 {
@@ -73,6 +74,10 @@ class CreateProcedure extends Component
     public $landmarks;
 
     public $call_id = null; // <-- Para almacenar el ID de la llamada entrante
+
+    public $preventive_patrol_id = null; // <-- Para vincular con Patrullaje Preventivo de origen
+
+    public $preventivePatrolFolio = '';
 
     // Historial previo del número telefónico ingresado
     public $callerHistory = [];
@@ -220,6 +225,46 @@ class CreateProcedure extends Component
         $this->isOpen = true;
     }
 
+    #[On('openModalWithPatrol')]
+    public function openModalWithPatrol($patrolId)
+    {
+        $this->openModal();
+        $this->preventive_patrol_id = $patrolId;
+        $patrol = PreventivePatrol::find($patrolId);
+        if ($patrol) {
+            $this->preventivePatrolFolio = $patrol->folio;
+            $this->sector_id = $patrol->sector_id;
+            $this->device_id = $patrol->device_id;
+            $this->is_preventive = false;
+            if ($this->origins) {
+                $patrolOrigin = $this->origins->first(fn ($o) => str_contains(mb_strtolower($o->name), 'patrull') || str_contains(mb_strtolower($o->name), 'terreno'));
+                if ($patrolOrigin) {
+                    $this->origin_id = $patrolOrigin->id;
+                }
+            }
+        }
+    }
+
+    #[On('openModalWithPatrol')]
+    public function openModalWithPatrol($patrolId)
+    {
+        $this->openModal();
+        $this->preventive_patrol_id = $patrolId;
+        $patrol = \App\Models\PreventivePatrol::find($patrolId);
+        if ($patrol) {
+            $this->preventivePatrolFolio = $patrol->folio;
+            $this->sector_id = $patrol->sector_id;
+            $this->device_id = $patrol->device_id;
+            $this->is_preventive = false;
+            if ($this->origins) {
+                $patrolOrigin = $this->origins->first(fn ($o) => str_contains(mb_strtolower($o->name), 'patrull') || str_contains(mb_strtolower($o->name), 'terreno'));
+                if ($patrolOrigin) {
+                    $this->origin_id = $patrolOrigin->id;
+                }
+            }
+        }
+    }
+
     public function closeModal()
     {
         $this->isOpen = false;
@@ -247,6 +292,8 @@ class CreateProcedure extends Component
             'currentMetaFields',
             'metaValues',
             'call_id',
+            'preventive_patrol_id',
+            'preventivePatrolFolio',
             'callerHistory',
         ]);
         $this->callerStats = ['total_cases' => 0, 'total_calls' => 0, 'pranks' => 0];
@@ -317,9 +364,13 @@ class CreateProcedure extends Component
             'status' => $status,
             'dispatched_at' => $dispatchedAt,
             'call_id' => $this->call_id,
+            'preventive_patrol_id' => $this->preventive_patrol_id ?: null,
         ]);
 
         $logDescription = 'Procedimiento ingresado. '.($this->device_id ? 'Móvil despachado inmediatamente.' : 'A la espera de asignación de móvil.');
+        if ($this->preventive_patrol_id) {
+            $logDescription .= " Originado a partir del Patrullaje Preventivo #{$this->preventivePatrolFolio}.";
+        }
         if (! empty(trim($this->initial_description))) {
             $logDescription .= ' Relato inicial: "'.trim($this->initial_description).'".';
         }
