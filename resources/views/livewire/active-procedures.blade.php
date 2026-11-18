@@ -173,84 +173,86 @@
         />
     </div>
 
-    {{-- MONITOR DE ESTADO DE FLOTA --}}
-    @if(isset($fleetDevices) && $fleetDevices->count() > 0)
-        <div class="rounded-lg border border-ui-border bg-ui-card p-4 text-ui-fg shadow-xs" x-data="{ openFleet: true }">
-            <div class="flex flex-wrap justify-between items-center gap-2">
-                <div class="flex flex-wrap items-center gap-2.5">
-                    <h2 class="text-xs font-extrabold uppercase text-ui-fg tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-car-on text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i>
-                        <span>Monitor de Recursos y Flota Operativa</span>
-                    </h2>
-                    <span class="text-xs bg-[#16835D]/15 text-[#11684A] dark:bg-[#16835D]/25 dark:text-[#6EE7B7] border border-[#16835D]/30 px-2.5 py-0.5 rounded-md font-bold font-mono cad-tabular">
-                        <i class="fa-solid fa-circle-check mr-1 text-[10px]" aria-hidden="true"></i>{{ $fleetDevices->filter(fn($d) => $d->effective_status === 'Disponible (QAP)')->count() }} Disponibles
-                    </span>
-                    <span class="text-xs bg-[#2563EB]/15 text-[#1D4ED8] dark:bg-[#2563EB]/25 dark:text-[#93C5FD] border border-[#2563EB]/30 px-2.5 py-0.5 rounded-md font-bold font-mono cad-tabular">
-                        <i class="fa-solid fa-car-on mr-1 text-[10px]" aria-hidden="true"></i>{{ $fleetDevices->filter(fn($d) => $d->effective_status === 'En Procedimiento')->count() }} En Procedimiento
-                    </span>
-                </div>
-                <button type="button" @click="openFleet = !openFleet" class="text-xs font-bold text-ui-muted hover:text-ui-fg px-2 py-1 rounded hover:bg-ui-subtle transition">
-                    <span x-show="openFleet"><i class="fa-solid fa-chevron-up mr-1" aria-hidden="true"></i>Compactar</span>
-                    <span x-show="!openFleet" style="display: none;"><i class="fa-solid fa-chevron-down mr-1" aria-hidden="true"></i>Desplegar Flota</span>
-                </button>
-            </div>
-
-            <div x-show="openFleet" class="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                @foreach($fleetDevices as $dev)
-                    @php
-                        $effStatus = $dev->effective_status;
-                        $leftBorder = match($effStatus) {
-                            'Disponible (QAP)' => 'border-l-[#16835D]',
-                            'En Procedimiento' => 'border-l-[#2563EB]',
-                            'En Colación'      => 'border-l-[#B98500]',
-                            'Punto Fijo'       => 'border-l-brand-cobalt dark:border-l-brand-cobalt-mid',
-                            'En Mantención'    => 'border-l-[#DC3545]',
-                            default            => 'border-l-[#64748B]',
-                        };
-                    @endphp
-                    <div class="border border-ui-border border-l-4 {{ $leftBorder }} rounded-lg bg-ui-subtle/60 p-3 flex flex-col justify-between">
-                        <div>
-                            <div class="flex justify-between items-start gap-1.5">
-                                <span class="font-bold text-ui-fg text-xs flex items-center gap-1.5">
-                                    <i class="fa-solid fa-shield-halved text-brand-cobalt dark:text-brand-cobalt-mid text-[11px]" aria-hidden="true"></i>
-                                    <span>{{ $dev->name }}</span>
-                                </span>
-                                <x-cad.unit-status :status="$effStatus" :activeCount="$dev->active_procedures_count" />
-                            </div>
-                            @if($dev->activePatrolAssignment)
-                                <div class="text-[11px] text-ui-muted mt-1.5 truncate">
-                                    <span class="font-bold text-ui-fg">{{ $dev->activePatrolAssignment->sector->name ?? 'Sin sector' }}</span>
-                                    @if($dev->activePatrolAssignment->crew->count() > 0)
-                                        · {{ $dev->activePatrolAssignment->crew->pluck('name')->join(', ') }}
-                                    @endif
-                                </div>
-                            @else
-                                <div class="text-[11px] text-ui-muted italic mt-1.5">Sin turno activo asignado</div>
-                            @endif
-                        </div>
-
-                        <div class="mt-2.5 pt-2 border-t border-ui-border flex justify-between items-center gap-2">
-                            <label class="sr-only" for="fleet-status-{{ $dev->id }}">Estado operativo de {{ $dev->name }}</label>
-                            <select id="fleet-status-{{ $dev->id }}"
-                                    wire:change="updateDeviceStatus({{ $dev->id }}, $event.target.value)"
-                                    class="text-[11px] py-1 px-2 rounded-md border-ui-border bg-ui-card text-ui-fg font-semibold w-full focus:border-ui-focus focus:ring-ui-focus">
-                                @foreach(['Disponible (QAP)', 'En Colación', 'Punto Fijo', 'En Mantención'] as $st)
-                                    <option value="{{ $st }}" @selected(($dev->operational_status ?: 'Disponible (QAP)') === $st)>
-                                        Estado: {{ str_replace(' (QAP)', '', $st) }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @if($dev->last_location_at)
-                                <span class="text-[10px] text-[#16835D] dark:text-[#6EE7B7] font-mono cad-tabular font-bold whitespace-nowrap" title="Último GPS: {{ $dev->last_location_at->format('H:i:s') }}">
-                                    <i class="fa-solid fa-satellite-dish mr-0.5" aria-hidden="true"></i>{{ $dev->last_location_at->diffForHumans(null, true, true) }}
-                                </span>
-                            @endif
-                        </div>
+    {{-- MONITOR DE ESTADO DE FLOTA (Oculto para Inspectores; cerrado por defecto para los demás perfiles) --}}
+    @unless(auth()->user()?->isInspectorOnly())
+        @if(isset($fleetDevices) && $fleetDevices->count() > 0)
+            <div class="rounded-lg border border-ui-border bg-ui-card p-4 text-ui-fg shadow-xs" x-data="{ openFleet: false }">
+                <div class="flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h2 class="text-xs font-extrabold uppercase text-ui-fg tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-car-on text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i>
+                            <span>Monitor de Recursos y Flota Operativa</span>
+                        </h2>
+                        <span class="text-xs bg-[#16835D]/15 text-[#11684A] dark:bg-[#16835D]/25 dark:text-[#6EE7B7] border border-[#16835D]/30 px-2.5 py-0.5 rounded-md font-bold font-mono cad-tabular">
+                            <i class="fa-solid fa-circle-check mr-1 text-[10px]" aria-hidden="true"></i>{{ $fleetDevices->filter(fn($d) => $d->effective_status === 'Disponible (QAP)')->count() }} Disponibles
+                        </span>
+                        <span class="text-xs bg-[#2563EB]/15 text-[#1D4ED8] dark:bg-[#2563EB]/25 dark:text-[#93C5FD] border border-[#2563EB]/30 px-2.5 py-0.5 rounded-md font-bold font-mono cad-tabular">
+                            <i class="fa-solid fa-car-on mr-1 text-[10px]" aria-hidden="true"></i>{{ $fleetDevices->filter(fn($d) => $d->effective_status === 'En Procedimiento')->count() }} En Procedimiento
+                        </span>
                     </div>
-                @endforeach
+                    <button type="button" @click="openFleet = !openFleet" class="text-xs font-bold text-ui-muted hover:text-ui-fg px-2 py-1 rounded hover:bg-ui-subtle transition">
+                        <span x-show="openFleet" style="display: none;"><i class="fa-solid fa-chevron-up mr-1" aria-hidden="true"></i>Compactar</span>
+                        <span x-show="!openFleet"><i class="fa-solid fa-chevron-down mr-1" aria-hidden="true"></i>Desplegar Flota</span>
+                    </button>
+                </div>
+
+                <div x-show="openFleet" style="display: none;" class="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    @foreach($fleetDevices as $dev)
+                        @php
+                            $effStatus = $dev->effective_status;
+                            $leftBorder = match($effStatus) {
+                                'Disponible (QAP)' => 'border-l-[#16835D]',
+                                'En Procedimiento' => 'border-l-[#2563EB]',
+                                'En Colación'      => 'border-l-[#B98500]',
+                                'Punto Fijo'       => 'border-l-brand-cobalt dark:border-l-brand-cobalt-mid',
+                                'En Mantención'    => 'border-l-[#DC3545]',
+                                default            => 'border-l-[#64748B]',
+                            };
+                        @endphp
+                        <div class="border border-ui-border border-l-4 {{ $leftBorder }} rounded-lg bg-ui-subtle/60 p-3 flex flex-col justify-between">
+                            <div>
+                                <div class="flex justify-between items-start gap-1.5">
+                                    <span class="font-bold text-ui-fg text-xs flex items-center gap-1.5">
+                                        <i class="fa-solid fa-shield-halved text-brand-cobalt dark:text-brand-cobalt-mid text-[11px]" aria-hidden="true"></i>
+                                        <span>{{ $dev->name }}</span>
+                                    </span>
+                                    <x-cad.unit-status :status="$effStatus" :activeCount="$dev->active_procedures_count" />
+                                </div>
+                                @if($dev->activePatrolAssignment)
+                                    <div class="text-[11px] text-ui-muted mt-1.5 truncate">
+                                        <span class="font-bold text-ui-fg">{{ $dev->activePatrolAssignment->sector->name ?? 'Sin sector' }}</span>
+                                        @if($dev->activePatrolAssignment->crew->count() > 0)
+                                            · {{ $dev->activePatrolAssignment->crew->pluck('name')->join(', ') }}
+                                        @endif
+                                    </div>
+                                @else
+                                    <div class="text-[11px] text-ui-muted italic mt-1.5">Sin turno activo asignado</div>
+                                @endif
+                            </div>
+
+                            <div class="mt-2.5 pt-2 border-t border-ui-border flex justify-between items-center gap-2">
+                                <label class="sr-only" for="fleet-status-{{ $dev->id }}">Estado operativo de {{ $dev->name }}</label>
+                                <select id="fleet-status-{{ $dev->id }}"
+                                        wire:change="updateDeviceStatus({{ $dev->id }}, $event.target.value)"
+                                        class="text-[11px] py-1 px-2 rounded-md border-ui-border bg-ui-card text-ui-fg font-semibold w-full focus:border-ui-focus focus:ring-ui-focus">
+                                    @foreach(['Disponible (QAP)', 'En Colación', 'Punto Fijo', 'En Mantención'] as $st)
+                                        <option value="{{ $st }}" @selected(($dev->operational_status ?: 'Disponible (QAP)') === $st)>
+                                            Estado: {{ str_replace(' (QAP)', '', $st) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @if($dev->last_location_at)
+                                    <span class="text-[10px] text-[#16835D] dark:text-[#6EE7B7] font-mono cad-tabular font-bold whitespace-nowrap" title="Último GPS: {{ $dev->last_location_at->format('H:i:s') }}">
+                                        <i class="fa-solid fa-satellite-dish mr-0.5" aria-hidden="true"></i>{{ $dev->last_location_at->diffForHumans(null, true, true) }}
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
             </div>
-        </div>
-    @endif
+        @endif
+    @endunless
 
     {{-- TABLA PRINCIPAL DE CASOS ACTIVOS CON BUSCADOR Y FILTROS RÁPIDOS --}}
     <div class="bg-ui-card shadow-xs rounded-lg overflow-hidden border border-ui-border">

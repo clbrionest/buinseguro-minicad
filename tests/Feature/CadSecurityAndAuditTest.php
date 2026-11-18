@@ -2,17 +2,22 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\ActiveProcedures;
 use App\Livewire\CallsReport;
 use App\Livewire\CreateProcedure;
+use App\Livewire\EmergencyDispatchAlert;
+use App\Livewire\FieldInspectorPanel;
 use App\Livewire\IncomingCallPopup;
 use App\Livewire\ManageCatalogs;
 use App\Livewire\ManageOperatorShifts;
 use App\Mail\ShiftClosedReportMail;
 use App\Models\AuditLog;
 use App\Models\Call;
+use App\Models\Device;
 use App\Models\Landmark;
 use App\Models\OperatorShift;
 use App\Models\Origin;
+use App\Models\PatrolAssignment;
 use App\Models\Procedure;
 use App\Models\ProcedureType;
 use App\Models\Sector;
@@ -800,5 +805,138 @@ class CadSecurityAndAuditTest extends TestCase
         $this->assertEquals(-33.7334567, (float) $savedProcedure->latitude);
         $this->assertEquals(-70.7412345, (float) $savedProcedure->longitude);
         $this->assertNull($savedProcedure->landmark_id);
+    }
+
+    public function test_inspector_default_view_fleet_visibility_assigned_cases_and_emergency_dispatch_alert(): void
+    {
+        $sector = Sector::create(['name' => 'Sector Centro']);
+        $type = ProcedureType::create(['name' => 'Robo en lugar habitado']);
+        $origin = Origin::create(['name' => '1426']);
+
+        $deviceAssigned = Device::create(['name' => 'Móvil 10', 'operational_status' => 'Disponible (QAP)']);
+        $deviceOther = Device::create(['name' => 'Móvil 20', 'operational_status' => 'Disponible (QAP)']);
+
+        $inspectorAssigned = User::factory()->create(['name' => 'Inspector Turno M10']);
+        $inspectorAssigned->assignRole('Inspector');
+        $inspectorAssigned->sectors()->attach($sector->id);
+
+        $inspectorUnassigned = User::factory()->create(['name' => 'Inspector Sin Turno']);
+        $inspectorUnassigned->assignRole('Inspector');
+        $inspectorUnassigned->sectors()->attach($sector->id);
+
+        $supervisorAssigned = User::factory()->create(['name' => 'Supervisor M10']);
+        $supervisorAssigned->assignRole('Supervisor');
+
+        $operator = User::factory()->create(['name' => 'Operador Sala']);
+        $operator->assignRole('Operador');
+        $operator->sectors()->attach($sector->id);
+
+        // Asignar turno activo en Móvil 10 a inspectorAssigned y supervisorAssigned
+        $assignment = PatrolAssignment::create([
+            'date' => today()->toDateString(),
+            'shift_name' => 'Turno Mañana',
+            'device_id' => $deviceAssigned->id,
+            'sector_id' => $sector->id,
+            'is_active' => true,
+        ]);
+        $assignment->crew()->attach($inspectorAssigned->id, ['role' => 'Conductor']);
+        $assignment->crew()->attach($supervisorAssigned->id, ['role' => 'Jefe de Patrulla']);
+
+        // 1. La vista de terreno es la vista por defecto de los inspectores
+        $this->actingAs($inspectorAssigned)
+            ->get('/')
+            ->assertRedirect(route('field.inspector'));
+
+        // 2 y 5. En el dashboard:
+        // - Los inspectores NO ven la tarjeta con el estado de la flota
+        // - Los demás perfiles ven la tarjeta de flota cerrada por defecto (openFleet: false)
+        $this->actingAs($inspectorAssigned)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('Monitor de Recursos y Flota Operativa');
+
+        $this->actingAs($operator)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Monitor de Recursos y Flota Operativa')
+            ->assertSee('openFleet: false', false);
+
+        // 3. Los inspectores pueden cambiar el estado del vehículo asignado por turno, pero no el de otros vehículos
+        Livewire::actingAs($inspectorAssigned)
+            ->test(FieldInspectorPanel::class)
+            ->assertSet('selected_device_id', $deviceAssigned->id)
+            ->call('setDeviceStatus', 'En Colación');
+
+        $this->assertSame('En Colación', $deviceAssigned->fresh()->operational_status);
+
+        // Intentar cambiar estado de un móvil NO asignado al inspector arroja 403
+        Livewire::actingAs($inspectorAssigned)
+            ->test(FieldInspectorPanel::class)
+            ->set('selected_device_id', $deviceOther->id)
+            ->call('setDeviceStatus', 'En Mantención')
+            ->assertForbidden();
+
+        // 6. Inspectores solo ven y pueden operar los casos asignados a su móvil
+        $assignedProc = Procedure::create([
+            'user_id' => $operator->id,
+            'origin_id' => $origin->id,
+            'sector_id' => $sector->id,
+            'procedure_type_id' => $type->id,
+            'initial_procedure_type_id' => $type->id,
+            'device_id' => $deviceAssigned->id,
+            'patrol_assignment_id' => $assignment->id,
+            'exact_address' => 'Calle Asignada 111',
+            'status' => 'En Camino',
+            'dispatched_at' => now(),
+        ]);
+
+        $unassignedProc = Procedure::create([
+            'user_id' => $operator->id,
+            'origin_id' => $origin->id,
+            'sector_id' => $sector->id,
+            'procedure_type_id' => $type->id,
+            'initial_procedure_type_id' => $type->id,
+            'device_id' => $deviceOther->id,
+            'exact_address' => 'Calle Otro Movil 999',
+            'status' => 'En Camino',
+            'dispatched_at' => now(),
+        ]);
+
+        Livewire::actingAs($inspectorAssigned)
+            ->test(ActiveProcedures::class)
+            ->assertSee('Calle Asignada 111')
+            ->assertDontSee('Calle Otro Movil 999');
+
+        // Inspector puede acceder al caso asignado, pero recibe 403 en el caso no asignado
+        $this->actingAs($inspectorAssigned)
+            ->get(route('procedures.show', $assignedProc->id))
+            ->assertOk();
+
+        $this->actingAs($inspectorAssigned)
+            ->get(route('procedures.show', $unassignedProc->id))
+            ->assertStatus(403);
+
+        // 4. Al asignar un procedimiento al móvil, suena notificación de emergencia a los inspectores y supervisores asignados
+        Livewire::actingAs($inspectorAssigned)
+            ->test(EmergencyDispatchAlert::class)
+            ->assertSet('showEmergencyModal', true)
+            ->assertDispatched('play-emergency-siren')
+            ->assertSee('Despacho de Emergencia a Unidad')
+            ->assertSee('Móvil 10')
+            ->assertSee('Calle Asignada 111')
+            ->call('acknowledgeDispatch')
+            ->assertSet('showEmergencyModal', false)
+            ->assertDispatched('stop-emergency-siren');
+
+        Livewire::actingAs($supervisorAssigned)
+            ->test(EmergencyDispatchAlert::class)
+            ->assertSet('showEmergencyModal', true)
+            ->assertDispatched('play-emergency-siren');
+
+        // Inspector no asignado a ese móvil NO recibe la alerta de emergencia
+        Livewire::actingAs($inspectorUnassigned)
+            ->test(EmergencyDispatchAlert::class)
+            ->assertSet('showEmergencyModal', false)
+            ->assertNotDispatched('play-emergency-siren');
     }
 }

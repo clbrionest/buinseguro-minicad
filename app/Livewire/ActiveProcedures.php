@@ -2,15 +2,21 @@
 
 namespace App\Livewire;
 
-use Livewire\Component;
+use App\Models\Device;
+use App\Models\OperationalEvent;
+use App\Models\OperatorShift;
 use App\Models\Procedure;
 use App\Models\Sector;
+use App\Models\SystemCatalogItem;
 use Livewire\Attributes\On;
+use Livewire\Component;
 
 class ActiveProcedures extends Component
 {
     public $search = '';
+
     public $filterStatus = '';
+
     public $filterSector = '';
 
     public function toggleStatusFilter($status)
@@ -20,17 +26,25 @@ class ActiveProcedures extends Component
 
     public function updateDeviceStatus($deviceId, $newStatus)
     {
-        $allowed = \App\Models\SystemCatalogItem::namesFor('device_statuses', [
+        $user = auth()->user();
+        if ($user && $user->isInspectorOnly()) {
+            $assignedIds = $user->assignedDeviceIds();
+            if (! in_array((int) $deviceId, $assignedIds, true)) {
+                abort(403, 'Solo puedes cambiar el estado del móvil que tienes asignado por turno.');
+            }
+        }
+
+        $allowed = SystemCatalogItem::namesFor('device_statuses', [
             'Disponible (QAP)',
             'En Colación',
             'Punto Fijo',
             'En Mantención',
         ]);
-        if (!in_array($newStatus, $allowed)) {
+        if (! in_array($newStatus, $allowed)) {
             return;
         }
 
-        \App\Models\Device::where('id', $deviceId)->update([
+        Device::where('id', $deviceId)->update([
             'operational_status' => $newStatus,
         ]);
     }
@@ -40,14 +54,20 @@ class ActiveProcedures extends Component
     public function render()
     {
         $user = auth()->user();
+        $isInspectorOnly = $user && $user->isInspectorOnly();
+        $assignedDeviceIds = $isInspectorOnly ? $user->assignedDeviceIds() : [];
 
         // 1. Iniciamos la consulta base (Excluimos Cerrados, Cancelados y Vinculados)
         $baseQuery = Procedure::with(['sector', 'procedureType', 'initialProcedureType', 'device', 'origin'])
             ->whereNotIn('status', ['Cerrado', 'Cancelado', 'Vinculado'])
             ->orderBy('created_at', 'desc');
 
-        // 2. Aplicamos el filtro de visibilidad si NO es Administrador ni Supervisor
-        if (!$user->hasAnyRole(['Administrador', 'Supervisor'])) {
+        // 2. Aplicamos el filtro de visibilidad según rol:
+        // - Inspector: solo ve los casos asignados a su móvil de turno (no la totalidad de los casos)
+        // - Operador: restringido a sus sectores asignados
+        if ($isInspectorOnly) {
+            $baseQuery->whereIn('device_id', ! empty($assignedDeviceIds) ? $assignedDeviceIds : [-1]);
+        } elseif (! $user->hasAnyRole(['Administrador', 'Supervisor'])) {
             $allowedSectors = $user->sectors->pluck('id');
             $baseQuery->whereIn('sector_id', $allowedSectors);
         }
@@ -71,10 +91,10 @@ class ActiveProcedures extends Component
             $term = trim(ltrim($this->search, '#'));
             $baseQuery->where(function ($q) use ($term) {
                 $q->where('id', $term)
-                  ->orWhere('exact_address', 'like', "%{$term}%")
-                  ->orWhere('caller_name', 'like', "%{$term}%")
-                  ->orWhere('caller_phone', 'like', "%{$term}%")
-                  ->orWhere('metadata', 'like', "%{$term}%");
+                    ->orWhere('exact_address', 'like', "%{$term}%")
+                    ->orWhere('caller_name', 'like', "%{$term}%")
+                    ->orWhere('caller_phone', 'like', "%{$term}%")
+                    ->orWhere('metadata', 'like', "%{$term}%");
             });
         }
 
@@ -82,13 +102,16 @@ class ActiveProcedures extends Component
 
         // 5. Cálculo de SLA Promedio del Día (Despacho y Arribo en minutos)
         $todayCases = Procedure::whereDate('created_at', today())
-            ->when(!$user->hasAnyRole(['Administrador', 'Supervisor']), function ($q) use ($user) {
+            ->when($isInspectorOnly, function ($q) use ($assignedDeviceIds) {
+                $q->whereIn('device_id', ! empty($assignedDeviceIds) ? $assignedDeviceIds : [-1]);
+            })
+            ->when(! $isInspectorOnly && ! $user->hasAnyRole(['Administrador', 'Supervisor']), function ($q) use ($user) {
                 $q->whereIn('sector_id', $user->sectors->pluck('id'));
             })
             ->get();
 
-        $dispatchedToday = $todayCases->filter(fn($p) => !is_null($p->dispatch_minutes));
-        $arrivedToday = $todayCases->filter(fn($p) => !is_null($p->arrived_at) && !is_null($p->arrival_minutes));
+        $dispatchedToday = $todayCases->filter(fn ($p) => ! is_null($p->dispatch_minutes));
+        $arrivedToday = $todayCases->filter(fn ($p) => ! is_null($p->arrived_at) && ! is_null($p->arrival_minutes));
 
         $avgDispatchMinutes = $dispatchedToday->count() > 0
             ? round($dispatchedToday->avg('dispatch_minutes'), 1)
@@ -99,28 +122,30 @@ class ActiveProcedures extends Component
             : null;
 
         // 6. Consultar si existe un Evento Masivo / Contingencia activa
-        $activeEvent = \App\Models\OperationalEvent::withCount([
+        $activeEvent = OperationalEvent::withCount([
             'reports',
-            'reports as pending_reports_count' => fn($q) => $q->where('status', 'Pendiente'),
-            'reports as in_progress_reports_count' => fn($q) => $q->where('status', 'En Atención'),
+            'reports as pending_reports_count' => fn ($q) => $q->where('status', 'Pendiente'),
+            'reports as in_progress_reports_count' => fn ($q) => $q->where('status', 'En Atención'),
         ])->where('is_active', true)->latest()->first();
 
-        // 7. Monitor de Estado de Flota (QAP)
-        $fleetDevices = \App\Models\Device::with(['activePatrolAssignment.sector', 'activePatrolAssignment.crew'])
-            ->withCount('activeProcedures')
-            ->orderBy('name')
-            ->get();
+        // 7. Monitor de Estado de Flota (No se muestra a los inspectores)
+        $fleetDevices = $isInspectorOnly
+            ? collect()
+            : Device::with(['activePatrolAssignment.sector', 'activePatrolAssignment.crew'])
+                ->withCount('activeProcedures')
+                ->orderBy('name')
+                ->get();
 
         $sectors = $user->hasAnyRole(['Administrador', 'Supervisor'])
             ? Sector::orderBy('name')->get()
             : $user->sectors()->orderBy('name')->get();
 
-        $activeShift = \App\Models\OperatorShift::with('openedBy')
+        $activeShift = OperatorShift::with('openedBy')
             ->where('is_active', true)
             ->latest('started_at')
             ->first();
 
-        $lastClosedShift = \App\Models\OperatorShift::with(['openedBy', 'closedBy'])
+        $lastClosedShift = OperatorShift::with(['openedBy', 'closedBy'])
             ->where('is_active', false)
             ->latest('closed_at')
             ->first();
