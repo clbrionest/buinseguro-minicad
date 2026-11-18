@@ -293,12 +293,12 @@
             <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2" role="group" aria-label="Cambiar estado operativo de unidad">
                 @php
                     $statuses = [
-                        'Disponible (QAP)' => ['icon' => 'fa-solid fa-circle-check', 'active' => 'bg-brand-lime text-brand-black ring-2 ring-white'],
-                        'Punto Fijo'       => ['icon' => 'fa-solid fa-location-pin', 'active' => 'bg-brand-white text-brand-cobalt ring-2 ring-brand-lime'],
-                        'En Colación'      => ['icon' => 'fa-solid fa-mug-saucer', 'active' => 'bg-[#B98500] text-brand-white ring-2 ring-white'],
-                        'En Mantención'    => ['icon' => 'fa-solid fa-screwdriver-wrench', 'active' => 'bg-priority-critical text-brand-white ring-2 ring-white'],
+                        'Disponible'    => ['icon' => 'fa-solid fa-circle-check', 'active' => 'bg-brand-lime text-brand-black ring-2 ring-white'],
+                        'Punto Fijo'    => ['icon' => 'fa-solid fa-location-pin', 'active' => 'bg-brand-white text-brand-cobalt ring-2 ring-brand-lime'],
+                        'En Colación'   => ['icon' => 'fa-solid fa-mug-saucer', 'active' => 'bg-[#B98500] text-brand-white ring-2 ring-white'],
+                        'En Mantención' => ['icon' => 'fa-solid fa-screwdriver-wrench', 'active' => 'bg-priority-critical text-brand-white ring-2 ring-white'],
                     ];
-                    $currentBase = $currentDevice->operational_status ?: 'Disponible (QAP)';
+                    $currentBase = trim(str_replace(' (QAP)', '', (string) ($currentDevice->operational_status ?: 'Disponible')));
                 @endphp
                 @foreach($statuses as $stName => $cfg)
                     <button type="button"
@@ -306,7 +306,7 @@
                             :aria-pressed="{{ $currentBase === $stName ? 'true' : 'false' }}"
                             class="min-h-[44px] py-2.5 px-2.5 rounded-lg text-xs font-extrabold transition flex items-center justify-center gap-1.5 {{ $currentBase === $stName ? $cfg['active'] : 'bg-black/25 text-brand-white/85 hover:bg-white/15 border border-white/10' }}">
                         <i class="{{ $cfg['icon'] }}" aria-hidden="true"></i>
-                        <span>{{ str_replace(' (QAP)', '', $stName) }}</span>
+                        <span>{{ $stName }}</span>
                     </button>
                 @endforeach
             </div>

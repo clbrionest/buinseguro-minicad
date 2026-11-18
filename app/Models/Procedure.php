@@ -180,7 +180,7 @@ class Procedure extends Model
         $result = [];
 
         foreach ($this->metadata as $key => $val) {
-            if ($val === '' || is_null($val)) {
+            if (str_starts_with((string) $key, '_') || is_array($val) || $val === '' || is_null($val)) {
                 continue;
             }
             $label = $schemaFields->has($key)
@@ -195,6 +195,39 @@ class Procedure extends Model
         }
 
         return $result;
+    }
+
+    /**
+     * Verifica si el usuario puede editar o modificar un antecedente (clave de metadata) específico.
+     * Un inspector puede agregar nuevos antecedentes o editar los que él mismo haya creado,
+     * pero no puede ni eliminar ni editar los que hayan creado otros usuarios.
+     */
+    public function canUserEditMetaKey(string $key, ?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasAnyRole(['Administrador', 'Supervisor', 'Operador'])) {
+            return true;
+        }
+
+        $meta = is_array($this->metadata) ? $this->metadata : [];
+        $currentVal = $meta[$key] ?? null;
+
+        // Si el antecedente aún está vacío, el inspector puede agregarlo
+        if (is_null($currentVal) || trim((string) $currentVal) === '') {
+            return true;
+        }
+
+        $authors = isset($meta['_meta_authors']) && is_array($meta['_meta_authors'])
+            ? $meta['_meta_authors']
+            : [];
+
+        // Si no tiene autor explícito en _meta_authors, el autor original es quien creó el caso ($this->user_id)
+        $authorId = $authors[$key] ?? $this->user_id;
+
+        return ! is_null($authorId) && (int) $authorId === (int) $user->id;
     }
 
     public function device()

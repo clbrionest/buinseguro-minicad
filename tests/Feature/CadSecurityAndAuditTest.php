@@ -10,6 +10,7 @@ use App\Livewire\FieldInspectorPanel;
 use App\Livewire\IncomingCallPopup;
 use App\Livewire\ManageCatalogs;
 use App\Livewire\ManageOperatorShifts;
+use App\Livewire\ShowProcedure;
 use App\Mail\ShiftClosedReportMail;
 use App\Models\AuditLog;
 use App\Models\Call;
@@ -19,6 +20,7 @@ use App\Models\OperatorShift;
 use App\Models\Origin;
 use App\Models\PatrolAssignment;
 use App\Models\Procedure;
+use App\Models\ProcedureLog;
 use App\Models\ProcedureType;
 use App\Models\Sector;
 use App\Models\ShiftReportRecipient;
@@ -861,13 +863,21 @@ class CadSecurityAndAuditTest extends TestCase
             ->assertSee('Monitor de Recursos y Flota Operativa')
             ->assertSee('openFleet: false', false);
 
-        // 3. Los inspectores pueden cambiar el estado del vehículo asignado por turno, pero no el de otros vehículos
+        // 3. Los inspectores pueden cambiar el estado del vehículo asignado por turno (incluyendo Disponible), pero no el de otros vehículos
+        SystemCatalogItem::create([
+            'catalog_group' => 'device_statuses',
+            'name' => 'Disponible',
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
         Livewire::actingAs($inspectorAssigned)
             ->test(FieldInspectorPanel::class)
             ->assertSet('selected_device_id', $deviceAssigned->id)
-            ->call('setDeviceStatus', 'En Colación');
+            ->call('setDeviceStatus', 'En Colación')
+            ->call('setDeviceStatus', 'Disponible (QAP)');
 
-        $this->assertSame('En Colación', $deviceAssigned->fresh()->operational_status);
+        $this->assertSame('Disponible', $deviceAssigned->fresh()->operational_status);
 
         // Intentar cambiar estado de un móvil NO asignado al inspector arroja 403
         Livewire::actingAs($inspectorAssigned)
@@ -916,12 +926,12 @@ class CadSecurityAndAuditTest extends TestCase
             ->get(route('procedures.show', $unassignedProc->id))
             ->assertStatus(403);
 
-        // 4. Al asignar un procedimiento al móvil, suena notificación de emergencia a los inspectores y supervisores asignados
+        // 4. Al asignar un procedimiento al móvil, suena notificación de asignación a los inspectores y supervisores asignados
         Livewire::actingAs($inspectorAssigned)
             ->test(EmergencyDispatchAlert::class)
             ->assertSet('showEmergencyModal', true)
             ->assertDispatched('play-emergency-siren')
-            ->assertSee('Despacho de Emergencia a Unidad')
+            ->assertSee('Procedimiento Asignado a Unidad')
             ->assertSee('Móvil 10')
             ->assertSee('Calle Asignada 111')
             ->call('acknowledgeDispatch')
@@ -933,10 +943,168 @@ class CadSecurityAndAuditTest extends TestCase
             ->assertSet('showEmergencyModal', true)
             ->assertDispatched('play-emergency-siren');
 
-        // Inspector no asignado a ese móvil NO recibe la alerta de emergencia
+        // Inspector no asignado a ese móvil NO recibe la alerta
         Livewire::actingAs($inspectorUnassigned)
             ->test(EmergencyDispatchAlert::class)
             ->assertSet('showEmergencyModal', false)
             ->assertNotDispatched('play-emergency-siren');
+    }
+
+    public function test_inspector_audio_visibility_antecedentes_authorship_and_procedure_transfer(): void
+    {
+        $sector = Sector::create(['name' => 'Sector Sur']);
+        $type = ProcedureType::create(['name' => 'Accidente de Tránsito']);
+        $origin = Origin::create(['name' => '1426']);
+        $device1 = Device::create(['name' => 'Móvil 11', 'operational_status' => 'Disponible']);
+        $device2 = Device::create(['name' => 'Móvil 12', 'operational_status' => 'Disponible']);
+
+        $operator = User::factory()->create(['name' => 'Operador Central', 'extension' => '105']);
+        $operator->assignRole('Operador');
+        $operator->sectors()->attach($sector->id);
+
+        $inspector1 = User::factory()->create(['name' => 'Inspector Uno']);
+        $inspector1->assignRole('Inspector');
+
+        $inspector2 = User::factory()->create(['name' => 'Inspector Dos']);
+        $inspector2->assignRole('Inspector');
+
+        $shift1 = PatrolAssignment::create([
+            'date' => today()->toDateString(),
+            'shift_name' => 'Turno 1',
+            'device_id' => $device1->id,
+            'sector_id' => $sector->id,
+            'is_active' => true,
+        ]);
+        $shift1->crew()->attach($inspector1->id, ['role' => 'Conductor']);
+
+        $shift2 = PatrolAssignment::create([
+            'date' => today()->toDateString(),
+            'shift_name' => 'Turno 2',
+            'device_id' => $device2->id,
+            'sector_id' => $sector->id,
+            'is_active' => true,
+        ]);
+        $shift2->crew()->attach($inspector2->id, ['role' => 'Conductor']);
+
+        $call = Call::create([
+            'asterisk_id' => 'ast-audio-hide-1',
+            'caller_id' => '+56955554444',
+            'extension' => '105',
+            'status' => 'completed',
+            'recording_path' => '2026/11/18/call.wav',
+        ]);
+
+        $procedure = Procedure::create([
+            'user_id' => $operator->id,
+            'origin_id' => $origin->id,
+            'sector_id' => $sector->id,
+            'procedure_type_id' => $type->id,
+            'initial_procedure_type_id' => $type->id,
+            'device_id' => $device1->id,
+            'patrol_assignment_id' => $shift1->id,
+            'exact_address' => 'Av. O\'Higgins 500',
+            'status' => 'En Camino',
+            'dispatched_at' => now(),
+            'call_id' => $call->id,
+            'metadata' => [
+                'ppu_1' => 'ABCD-12',
+                '_meta_authors' => ['ppu_1' => $operator->id],
+            ],
+        ]);
+
+        $operatorLog = ProcedureLog::create([
+            'procedure_id' => $procedure->id,
+            'user_id' => $operator->id,
+            'action_type' => 'Ingreso de Llamado',
+            'description' => 'Relato ingresado por operadora.',
+        ]);
+
+        // 1. El inspector NO ve el bloque de audio de la llamada, mientras que la operadora sí lo ve
+        $this->actingAs($inspector1)
+            ->get(route('procedures.show', $procedure->id))
+            ->assertOk()
+            ->assertDontSee('Grabación Telefónica');
+
+        $this->actingAs($operator)
+            ->get(route('procedures.show', $procedure->id))
+            ->assertOk()
+            ->assertSee('Grabación Telefónica');
+
+        // 2. El inspector puede agregar un nuevo antecedente y editar los suyos, pero NO puede editar ni borrar los de otros usuarios
+        $showComp = Livewire::actingAs($inspector1)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            // Intentar modificar ppu_1 (creado por la operadora) y agregar un antecedente propio
+            ->set('metaValues.ppu_1', 'HACK-99')
+            ->set('customMetaLabel', 'Color Vehículo')
+            ->set('customMetaValue', 'Rojo')
+            ->call('addCustomMetadataField')
+            ->call('saveMetadataAndCategory');
+
+        $freshMeta = $procedure->fresh()->metadata;
+        // El antecedente de la operadora se mantiene intacto
+        $this->assertSame('ABCD-12', $freshMeta['ppu_1']);
+        // El nuevo antecedente del inspector sí se guardó y quedó registrado bajo su autoría
+        $this->assertSame('Rojo', $freshMeta['color_vehiculo']);
+        $this->assertSame($inspector1->id, $freshMeta['_meta_authors']['color_vehiculo']);
+
+        // El inspector sí puede editar el antecedente que él mismo creó
+        $showComp->set('metaValues.color_vehiculo', 'Azul Metálico')
+            ->call('saveMetadataAndCategory');
+        $this->assertSame('Azul Metálico', $procedure->fresh()->metadata['color_vehiculo']);
+
+        // En bitácora: el inspector no puede editar ni eliminar la anotación de la operadora
+        Livewire::actingAs($inspector1)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            ->call('startEditingLog', $operatorLog->id)
+            ->assertForbidden();
+
+        Livewire::actingAs($inspector1)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            ->call('deleteLog', $operatorLog->id)
+            ->assertForbidden();
+
+        // Pero sí puede registrar su propia anotación y editarla
+        Livewire::actingAs($inspector1)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            ->set('action_type', 'Novedad')
+            ->set('description', 'Nota inicial del inspector.')
+            ->call('saveLog');
+
+        $inspectorLog = ProcedureLog::where('procedure_id', $procedure->id)
+            ->where('user_id', $inspector1->id)
+            ->first();
+        $this->assertNotNull($inspectorLog);
+
+        Livewire::actingAs($inspector1)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            ->call('startEditingLog', $inspectorLog->id)
+            ->set('editing_log_description', 'Nota corregida por el mismo inspector.')
+            ->call('saveEditedLog')
+            ->assertHasNoErrors();
+
+        $this->assertSame('Nota corregida por el mismo inspector.', $inspectorLog->fresh()->description);
+
+        // 3. Operador / Supervisor / Admin puede traspasar el procedimiento a otro inspector (inspector2)
+        Livewire::actingAs($operator)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            ->set('transfer_inspector_id', $inspector2->id)
+            ->set('transfer_notes', 'Relevo de turno en sector sur')
+            ->call('transferProcedure')
+            ->assertHasNoErrors()
+            ->assertDispatched('procedure-dispatched');
+
+        $procedure->refresh();
+        $this->assertSame($device2->id, $procedure->device_id);
+        $this->assertSame($inspector2->id, $procedure->metadata['_assigned_inspector_id']);
+
+        // Ahora el inspector2 puede operar el procedimiento y recibe la notificación de asignación
+        $this->actingAs($inspector2)
+            ->get(route('procedures.show', $procedure->id))
+            ->assertOk();
+
+        Livewire::actingAs($inspector2)
+            ->test(EmergencyDispatchAlert::class)
+            ->assertSet('showEmergencyModal', true)
+            ->assertSee('Procedimiento Traspasado / Asignado');
     }
 }

@@ -81,21 +81,35 @@ class FieldInspectorPanel extends Component
             }
         }
 
-        $allowed = SystemCatalogItem::namesFor('device_statuses', [
-            'Disponible (QAP)',
+        $catalogStatuses = SystemCatalogItem::namesFor('device_statuses', [
+            'Disponible',
             'En Colación',
             'Punto Fijo',
             'En Mantención',
         ]);
-        if (! in_array($status, $allowed)) {
+
+        $normalizedInput = trim(str_replace(' (QAP)', '', (string) $status));
+        $normalizedCatalog = array_map(
+            fn ($item) => trim(str_replace(' (QAP)', '', (string) $item)),
+            $catalogStatuses
+        );
+
+        $allowedNormalized = array_unique(array_merge($normalizedCatalog, [
+            'Disponible',
+            'En Colación',
+            'Punto Fijo',
+            'En Mantención',
+        ]));
+
+        if (! in_array($normalizedInput, $allowedNormalized, true)) {
             return;
         }
 
         Device::where('id', $this->selected_device_id)->update([
-            'operational_status' => $status,
+            'operational_status' => $normalizedInput,
         ]);
 
-        session()->flash('field_message', 'Estado del móvil actualizado a: '.str_replace(' (QAP)', '', $status));
+        session()->flash('field_message', 'Estado del móvil actualizado a: '.$normalizedInput);
     }
 
     #[On('preventive-patrol-created')]

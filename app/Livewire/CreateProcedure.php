@@ -360,10 +360,14 @@ class CreateProcedure extends Component
             }
         }
 
-        // Filtrar metadatos no vacíos
+        // Filtrar metadatos no vacíos y registrar el autor inicial de cada antecedente
         $cleanMeta = collect($this->metaValues)
             ->filter(fn ($val) => ! is_null($val) && trim((string) $val) !== '')
             ->toArray();
+
+        if (! empty($cleanMeta)) {
+            $cleanMeta['_meta_authors'] = array_fill_keys(array_keys($cleanMeta), Auth::id());
+        }
 
         $procedure = Procedure::create([
             'user_id' => Auth::id(),

@@ -87,6 +87,15 @@ class User extends Authenticatable
         }
 
         if ($this->hasRole('Inspector')) {
+            $meta = is_array($procedure->metadata) ? $procedure->metadata : [];
+            $explicitInspectorId = $meta['_assigned_inspector_id'] ?? null;
+
+            if (! is_null($explicitInspectorId)) {
+                if ((int) $explicitInspectorId === (int) $this->id) {
+                    return true;
+                }
+            }
+
             $assignedDevices = $this->assignedDeviceIds();
             if (! empty($procedure->device_id) && in_array((int) $procedure->device_id, $assignedDevices, true)) {
                 return true;

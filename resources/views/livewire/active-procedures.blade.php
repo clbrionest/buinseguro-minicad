@@ -184,7 +184,7 @@
                             <span>Monitor de Recursos y Flota Operativa</span>
                         </h2>
                         <span class="text-xs bg-[#16835D]/15 text-[#11684A] dark:bg-[#16835D]/25 dark:text-[#6EE7B7] border border-[#16835D]/30 px-2.5 py-0.5 rounded-md font-bold font-mono cad-tabular">
-                            <i class="fa-solid fa-circle-check mr-1 text-[10px]" aria-hidden="true"></i>{{ $fleetDevices->filter(fn($d) => $d->effective_status === 'Disponible (QAP)')->count() }} Disponibles
+                            <i class="fa-solid fa-circle-check mr-1 text-[10px]" aria-hidden="true"></i>{{ $fleetDevices->filter(fn($d) => in_array($d->effective_status, ['Disponible', 'Disponible (QAP)']))->count() }} Disponibles
                         </span>
                         <span class="text-xs bg-[#2563EB]/15 text-[#1D4ED8] dark:bg-[#2563EB]/25 dark:text-[#93C5FD] border border-[#2563EB]/30 px-2.5 py-0.5 rounded-md font-bold font-mono cad-tabular">
                             <i class="fa-solid fa-car-on mr-1 text-[10px]" aria-hidden="true"></i>{{ $fleetDevices->filter(fn($d) => $d->effective_status === 'En Procedimiento')->count() }} En Procedimiento
@@ -201,13 +201,14 @@
                         @php
                             $effStatus = $dev->effective_status;
                             $leftBorder = match($effStatus) {
-                                'Disponible (QAP)' => 'border-l-[#16835D]',
+                                'Disponible', 'Disponible (QAP)' => 'border-l-[#16835D]',
                                 'En Procedimiento' => 'border-l-[#2563EB]',
                                 'En Colación'      => 'border-l-[#B98500]',
                                 'Punto Fijo'       => 'border-l-brand-cobalt dark:border-l-brand-cobalt-mid',
                                 'En Mantención'    => 'border-l-[#DC3545]',
                                 default            => 'border-l-[#64748B]',
                             };
+                            $normalizedDevStatus = trim(str_replace(' (QAP)', '', (string) ($dev->operational_status ?: 'Disponible')));
                         @endphp
                         <div class="border border-ui-border border-l-4 {{ $leftBorder }} rounded-lg bg-ui-subtle/60 p-3 flex flex-col justify-between">
                             <div>
@@ -235,9 +236,9 @@
                                 <select id="fleet-status-{{ $dev->id }}"
                                         wire:change="updateDeviceStatus({{ $dev->id }}, $event.target.value)"
                                         class="text-[11px] py-1 px-2 rounded-md border-ui-border bg-ui-card text-ui-fg font-semibold w-full focus:border-ui-focus focus:ring-ui-focus">
-                                    @foreach(['Disponible (QAP)', 'En Colación', 'Punto Fijo', 'En Mantención'] as $st)
-                                        <option value="{{ $st }}" @selected(($dev->operational_status ?: 'Disponible (QAP)') === $st)>
-                                            Estado: {{ str_replace(' (QAP)', '', $st) }}
+                                    @foreach(['Disponible', 'En Colación', 'Punto Fijo', 'En Mantención'] as $st)
+                                        <option value="{{ $st }}" @selected($normalizedDevStatus === $st)>
+                                            Estado: {{ $st }}
                                         </option>
                                     @endforeach
                                 </select>

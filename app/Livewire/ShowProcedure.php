@@ -6,10 +6,12 @@ use App\Models\AuditLog;
 use App\Models\Device;
 use App\Models\Evidence;
 use App\Models\PatrolAssignment;
+use App\Models\PreventivePatrol;
 use App\Models\Procedure;
 use App\Models\ProcedureLog;
 use App\Models\ProcedureType;
 use App\Models\SystemCatalogItem;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -45,6 +47,16 @@ class ShowProcedure extends Component
     public $customMetaLabel = '';
 
     public $customMetaValue = '';
+
+    // Edición de anotaciones en Bitácora (solo el autor puede editar las propias)
+    public $editing_log_id = null;
+
+    public $editing_log_description = '';
+
+    // Traspaso de procedimiento a otro inspector (Supervisor, Operador, Administrador)
+    public $transfer_inspector_id = '';
+
+    public $transfer_notes = '';
 
     // Se ejecuta al cargar la página y recibe el ID de la URL
     public function mount(Procedure $procedure)
@@ -84,6 +96,9 @@ class ShowProcedure extends Component
 
         // Incluir cualquier metadato adicional guardado previamente aunque no esté en el esquema base
         foreach ($storedMeta as $k => $v) {
+            if (str_starts_with((string) $k, '_') || is_array($v)) {
+                continue;
+            }
             if (! in_array($k, $schemaKeys) && $v !== '' && ! is_null($v)) {
                 $schema[] = [
                     'key' => $k,
@@ -95,7 +110,14 @@ class ShowProcedure extends Component
             }
         }
 
-        $this->currentMetaFields = $schema;
+        $user = auth()->user();
+        $this->currentMetaFields = collect($schema)->map(function ($field) use ($user) {
+            $k = $field['key'];
+            $field['editable'] = $this->procedure->canUserEditMetaKey($k, $user);
+
+            return $field;
+        })->values()->toArray();
+
         $values = [];
         foreach ($this->currentMetaFields as $field) {
             $k = $field['key'];
@@ -121,7 +143,7 @@ class ShowProcedure extends Component
         }
 
         $key = Str::slug($label, '_');
-        if ($key === '') {
+        if ($key === '' || str_starts_with($key, '_')) {
             $key = 'dato_'.(count($this->currentMetaFields) + 1);
         }
 
@@ -133,21 +155,75 @@ class ShowProcedure extends Component
                 'type' => 'text',
                 'placeholder' => '',
                 'options' => '',
+                'editable' => true,
             ];
         }
 
-        $this->metaValues[$key] = $val;
+        if ($this->procedure->canUserEditMetaKey($key, auth()->user())) {
+            $this->metaValues[$key] = $val;
+        }
         $this->reset(['customMetaLabel', 'customMetaValue']);
     }
 
     public function saveMetadataAndCategory()
     {
+        $user = auth()->user();
+        abort_unless($user && $user->canAccessProcedure($this->procedure), 403);
+
         $oldTypeId = (int) $this->procedure->procedure_type_id;
         $newTypeId = (int) ($this->operational_procedure_type_id ?: $oldTypeId);
 
-        $cleanMeta = collect($this->metaValues)
-            ->filter(fn ($val) => ! is_null($val) && trim((string) $val) !== '')
-            ->toArray();
+        $existingMeta = is_array($this->procedure->metadata) ? $this->procedure->metadata : [];
+        $authors = isset($existingMeta['_meta_authors']) && is_array($existingMeta['_meta_authors'])
+            ? $existingMeta['_meta_authors']
+            : [];
+
+        $cleanMeta = [];
+
+        // Conservar primero cualquier antecedente existente creado por otro usuario si quien edita es Inspector
+        foreach ($existingMeta as $k => $existingVal) {
+            if (str_starts_with((string) $k, '_') || is_array($existingVal)) {
+                continue;
+            }
+            if (! isset($authors[$k]) && $existingVal !== '' && ! is_null($existingVal)) {
+                $authors[$k] = $this->procedure->user_id;
+            }
+            if ($user->isInspectorOnly() && ! $this->procedure->canUserEditMetaKey((string) $k, $user)) {
+                $cleanMeta[$k] = $existingVal;
+            }
+        }
+
+        // Procesar los valores enviados en el formulario
+        foreach ($this->metaValues as $k => $val) {
+            if (str_starts_with((string) $k, '_') || is_array($val)) {
+                continue;
+            }
+
+            if ($user->isInspectorOnly() && ! $this->procedure->canUserEditMetaKey((string) $k, $user)) {
+                continue;
+            }
+
+            $trimmedVal = ! is_null($val) ? trim((string) $val) : '';
+            if ($trimmedVal !== '') {
+                $cleanMeta[$k] = $trimmedVal;
+                if (! isset($authors[$k])) {
+                    $authors[$k] = $user->id;
+                }
+            } else {
+                unset($authors[$k]);
+            }
+        }
+
+        if (! empty($authors)) {
+            $cleanMeta['_meta_authors'] = $authors;
+        }
+
+        // Conservar metadatos internos de asignación si existen
+        foreach (['_assigned_inspector_id', '_assigned_inspector_name'] as $internalKey) {
+            if (isset($existingMeta[$internalKey])) {
+                $cleanMeta[$internalKey] = $existingMeta[$internalKey];
+            }
+        }
 
         $updates = [
             'procedure_type_id' => $newTypeId,
@@ -452,6 +528,310 @@ class ShowProcedure extends Component
         session()->flash('message', 'Procedimiento vinculado y cerrado exitosamente.');
     }
 
+    public function startEditingLog(int $logId): void
+    {
+        $log = ProcedureLog::where('procedure_id', $this->procedure->id)->findOrFail($logId);
+        $user = Auth::user();
+
+        if (! $user || ((int) $log->user_id !== (int) $user->id && ! $user->hasRole('Administrador'))) {
+            abort(403, 'No tienes permisos para editar antecedentes o anotaciones registradas por otros usuarios.');
+        }
+
+        $this->editing_log_id = $log->id;
+        $this->editing_log_description = $log->description;
+    }
+
+    public function cancelEditingLog(): void
+    {
+        $this->reset(['editing_log_id', 'editing_log_description']);
+    }
+
+    public function saveEditedLog(): void
+    {
+        if (! $this->editing_log_id) {
+            return;
+        }
+
+        $log = ProcedureLog::where('procedure_id', $this->procedure->id)->findOrFail($this->editing_log_id);
+        $user = Auth::user();
+
+        if (! $user || ((int) $log->user_id !== (int) $user->id && ! $user->hasRole('Administrador'))) {
+            abort(403, 'No tienes permisos para editar antecedentes o anotaciones registradas por otros usuarios.');
+        }
+
+        $this->validate([
+            'editing_log_description' => 'required|string|max:2000',
+        ]);
+
+        $oldDescription = $log->description;
+        $log->update([
+            'description' => trim($this->editing_log_description),
+        ]);
+
+        AuditLog::record(
+            'procedure_log.updated',
+            'Procedimientos',
+            "Edición de anotación #{$log->id} en Procedimiento #{$this->procedure->id}.",
+            $this->procedure,
+            ['log_id' => $log->id, 'old_description' => $oldDescription, 'new_description' => $log->description]
+        );
+
+        $this->cancelEditingLog();
+        $this->procedure->refresh();
+        session()->flash('message', 'Anotación actualizada correctamente.');
+    }
+
+    public function deleteLog(int $logId): void
+    {
+        $log = ProcedureLog::where('procedure_id', $this->procedure->id)->findOrFail($logId);
+        $user = Auth::user();
+
+        // Los inspectores no pueden eliminar anotaciones/antecedentes; solo Administrador puede eliminar
+        if (! $user || ! $user->hasRole('Administrador')) {
+            abort(403, 'No tienes permisos para eliminar antecedentes de la bitácora.');
+        }
+
+        $log->delete();
+        $this->procedure->refresh();
+        session()->flash('message', 'Anotación eliminada.');
+    }
+
+    public function transferProcedure(): void
+    {
+        $user = Auth::user();
+        if (! $user || ! $user->hasAnyRole(['Administrador', 'Supervisor', 'Operador'])) {
+            abort(403, 'Solo Administrador, Supervisor u Operador pueden traspasar un procedimiento a otro inspector.');
+        }
+
+        $this->validate([
+            'transfer_inspector_id' => 'required|exists:users,id',
+            'transfer_notes' => 'nullable|string|max:500',
+        ], [
+            'transfer_inspector_id.required' => 'Seleccione el inspector al que desea traspasar el procedimiento.',
+        ]);
+
+        $targetInspector = User::findOrFail($this->transfer_inspector_id);
+
+        // Buscar si el inspector destino tiene un turno activo en flota o patrullaje preventivo en curso
+        $activeAssignment = PatrolAssignment::with('device')
+            ->where('is_active', true)
+            ->whereHas('crew', fn ($q) => $q->where('users.id', $targetInspector->id))
+            ->latest()
+            ->first();
+
+        $targetDeviceId = $activeAssignment?->device_id;
+        if (! $targetDeviceId) {
+            $activePatrol = PreventivePatrol::where('status', 'En Curso')
+                ->where('user_id', $targetInspector->id)
+                ->latest('started_at')
+                ->first();
+            $targetDeviceId = $activePatrol?->device_id;
+        }
+
+        $meta = is_array($this->procedure->metadata) ? $this->procedure->metadata : [];
+        $meta['_assigned_inspector_id'] = (int) $targetInspector->id;
+        $meta['_assigned_inspector_name'] = $targetInspector->name;
+
+        $updates = [
+            'metadata' => $meta,
+            'dispatched_at' => now(),
+        ];
+
+        if ($targetDeviceId) {
+            $updates['device_id'] = $targetDeviceId;
+        }
+        if ($activeAssignment) {
+            $updates['patrol_assignment_id'] = $activeAssignment->id;
+        }
+        if ($this->procedure->status === 'Pendiente') {
+            $updates['status'] = 'En Camino';
+            $this->status = 'En Camino';
+        }
+
+        $this->procedure->update($updates);
+
+        $unitText = $activeAssignment?->device ? " (Unidad: {$activeAssignment->device->name})" : '';
+        $notesText = trim((string) $this->transfer_notes) !== '' ? ' Motivo/Instrucción: '.trim((string) $this->transfer_notes) : '';
+
+        ProcedureLog::create([
+            'procedure_id' => $this->procedure->id,
+            'user_id' => $user->id,
+            'action_type' => 'Traspaso de Procedimiento',
+            'description' => "Se traspasa la continuidad del procedimiento al inspector {$targetInspector->name}{$unitText}.{$notesText}",
+        ]);
+
+        AuditLog::record(
+            'procedure.transferred',
+            'Procedimientos',
+            "Procedimiento #{$this->procedure->id} traspasado al inspector {$targetInspector->name}{$unitText}.",
+            $this->procedure,
+            [
+                'transferred_to_user_id' => $targetInspector->id,
+                'transferred_to_name' => $targetInspector->name,
+                'device_id' => $this->procedure->device_id,
+                'notes' => $this->transfer_notes,
+            ]
+        );
+
+        $this->reset(['transfer_inspector_id', 'transfer_notes']);
+        $this->procedure->refresh();
+
+        $this->dispatch('procedure-dispatched', procedureId: $this->procedure->id, deviceId: $this->procedure->device_id);
+        session()->flash('message', "Procedimiento traspasado exitosamente a {$targetInspector->name}.");
+    }
+
+    public function startEditingLog(int $logId): void
+    {
+        $log = ProcedureLog::where('procedure_id', $this->procedure->id)->findOrFail($logId);
+        $user = Auth::user();
+
+        if (! $user || ((int) $log->user_id !== (int) $user->id && ! $user->hasRole('Administrador'))) {
+            abort(403, 'No tienes permisos para editar antecedentes o anotaciones registradas por otros usuarios.');
+        }
+
+        $this->editing_log_id = $log->id;
+        $this->editing_log_description = $log->description;
+    }
+
+    public function cancelEditingLog(): void
+    {
+        $this->reset(['editing_log_id', 'editing_log_description']);
+    }
+
+    public function saveEditedLog(): void
+    {
+        if (! $this->editing_log_id) {
+            return;
+        }
+
+        $log = ProcedureLog::where('procedure_id', $this->procedure->id)->findOrFail($this->editing_log_id);
+        $user = Auth::user();
+
+        if (! $user || ((int) $log->user_id !== (int) $user->id && ! $user->hasRole('Administrador'))) {
+            abort(403, 'No tienes permisos para editar antecedentes o anotaciones registradas por otros usuarios.');
+        }
+
+        $this->validate([
+            'editing_log_description' => 'required|string|max:2000',
+        ]);
+
+        $oldDescription = $log->description;
+        $log->update([
+            'description' => trim($this->editing_log_description),
+        ]);
+
+        AuditLog::record(
+            'procedure_log.updated',
+            'Procedimientos',
+            "Edición de anotación #{$log->id} en Procedimiento #{$this->procedure->id}.",
+            $this->procedure,
+            ['log_id' => $log->id, 'old_description' => $oldDescription, 'new_description' => $log->description]
+        );
+
+        $this->cancelEditingLog();
+        $this->procedure->refresh();
+        session()->flash('message', 'Anotación actualizada correctamente.');
+    }
+
+    public function deleteLog(int $logId): void
+    {
+        $log = ProcedureLog::where('procedure_id', $this->procedure->id)->findOrFail($logId);
+        $user = Auth::user();
+
+        // Los inspectores no pueden eliminar anotaciones/antecedentes; solo Administrador puede eliminar
+        if (! $user || ! $user->hasRole('Administrador')) {
+            abort(403, 'No tienes permisos para eliminar antecedentes de la bitácora.');
+        }
+
+        $log->delete();
+        $this->procedure->refresh();
+        session()->flash('message', 'Anotación eliminada.');
+    }
+
+    public function transferProcedure(): void
+    {
+        $user = Auth::user();
+        if (! $user || ! $user->hasAnyRole(['Administrador', 'Supervisor', 'Operador'])) {
+            abort(403, 'Solo Administrador, Supervisor u Operador pueden traspasar un procedimiento a otro inspector.');
+        }
+
+        $this->validate([
+            'transfer_inspector_id' => 'required|exists:users,id',
+            'transfer_notes' => 'nullable|string|max:500',
+        ], [
+            'transfer_inspector_id.required' => 'Seleccione el inspector al que desea traspasar el procedimiento.',
+        ]);
+
+        $targetInspector = \App\Models\User::findOrFail($this->transfer_inspector_id);
+
+        // Buscar si el inspector destino tiene un turno activo en flota o patrullaje preventivo en curso
+        $activeAssignment = PatrolAssignment::with('device')
+            ->where('is_active', true)
+            ->whereHas('crew', fn ($q) => $q->where('users.id', $targetInspector->id))
+            ->latest()
+            ->first();
+
+        $targetDeviceId = $activeAssignment?->device_id;
+        if (! $targetDeviceId) {
+            $activePatrol = \App\Models\PreventivePatrol::where('status', 'En Curso')
+                ->where('user_id', $targetInspector->id)
+                ->latest('started_at')
+                ->first();
+            $targetDeviceId = $activePatrol?->device_id;
+        }
+
+        $meta = is_array($this->procedure->metadata) ? $this->procedure->metadata : [];
+        $meta['_assigned_inspector_id'] = (int) $targetInspector->id;
+        $meta['_assigned_inspector_name'] = $targetInspector->name;
+
+        $updates = [
+            'metadata' => $meta,
+            'dispatched_at' => now(),
+        ];
+
+        if ($targetDeviceId) {
+            $updates['device_id'] = $targetDeviceId;
+        }
+        if ($activeAssignment) {
+            $updates['patrol_assignment_id'] = $activeAssignment->id;
+        }
+        if ($this->procedure->status === 'Pendiente') {
+            $updates['status'] = 'En Camino';
+            $this->status = 'En Camino';
+        }
+
+        $this->procedure->update($updates);
+
+        $unitText = $activeAssignment?->device ? " (Unidad: {$activeAssignment->device->name})" : '';
+        $notesText = trim((string) $this->transfer_notes) !== '' ? ' Motivo/Instrucción: '.trim((string) $this->transfer_notes) : '';
+
+        ProcedureLog::create([
+            'procedure_id' => $this->procedure->id,
+            'user_id' => $user->id,
+            'action_type' => 'Traspaso de Procedimiento',
+            'description' => "Se traspasa la continuidad del procedimiento al inspector {$targetInspector->name}{$unitText}.{$notesText}",
+        ]);
+
+        AuditLog::record(
+            'procedure.transferred',
+            'Procedimientos',
+            "Procedimiento #{$this->procedure->id} traspasado al inspector {$targetInspector->name}{$unitText}.",
+            $this->procedure,
+            [
+                'transferred_to_user_id' => $targetInspector->id,
+                'transferred_to_name' => $targetInspector->name,
+                'device_id' => $this->procedure->device_id,
+                'notes' => $this->transfer_notes,
+            ]
+        );
+
+        $this->reset(['transfer_inspector_id', 'transfer_notes']);
+        $this->procedure->refresh();
+
+        $this->dispatch('procedure-dispatched', procedureId: $this->procedure->id, deviceId: $this->procedure->device_id);
+        session()->flash('message', "Procedimiento traspasado exitosamente a {$targetInspector->name}.");
+    }
+
     public function applyResolution(string $resolution): void
     {
         if (trim($resolution) === '') {
@@ -497,12 +877,47 @@ class ShowProcedure extends Component
 
         $resolutions = SystemCatalogItem::namesFor('procedure_resolutions', []);
 
+        $inspectors = User::role('Inspector')
+            ->orderBy('name')
+            ->get()
+            ->map(function (User $insp) {
+                $activeShift = PatrolAssignment::with('device')
+                    ->where('is_active', true)
+                    ->whereHas('crew', fn ($q) => $q->where('users.id', $insp->id))
+                    ->latest()
+                    ->first();
+
+                return [
+                    'id' => $insp->id,
+                    'name' => $insp->name,
+                    'unit' => $activeShift?->device?->name,
+                ];
+            });
+
+        $inspectors = \App\Models\User::role('Inspector')
+            ->orderBy('name')
+            ->get()
+            ->map(function (\App\Models\User $insp) {
+                $activeShift = PatrolAssignment::with('device')
+                    ->where('is_active', true)
+                    ->whereHas('crew', fn ($q) => $q->where('users.id', $insp->id))
+                    ->latest()
+                    ->first();
+
+                return [
+                    'id' => $insp->id,
+                    'name' => $insp->name,
+                    'unit' => $activeShift?->device?->name,
+                ];
+            });
+
         return view('livewire.show-procedure', [
             'devices' => Device::withCount('activeProcedures')->orderBy('name')->get(),
             'procedureTypes' => ProcedureType::orderBy('name')->get(),
             'previousCallerCases' => $previousCallerCases,
             'logActions' => $logActions,
             'resolutions' => $resolutions,
+            'inspectors' => $inspectors,
         ])->layout('layouts.app');
     }
 }
