@@ -18,6 +18,7 @@ new class extends Component
 
 <nav x-data="{
         open: false,
+        showChangelogModal: false,
         clock: '',
         initClock() {
             const update = () => {
@@ -44,8 +45,7 @@ new class extends Component
                         </div>
                         <div class="leading-tight">
                             <span class="font-black text-sm tracking-wider text-brand-white block">BUIN SEGURO</span>
-                            <span class="text-[10px] text-brand-lime-light uppercase font-bold block">MiniCAD</span>
-                            </span>
+                            <span class="text-[10px] text-brand-lime-light uppercase font-bold block">MiniCAD <span class="font-mono text-[9px] opacity-90">{{ $cadVersionTag ?? 'v1.3.0' }}</span></span>
                         </div>
                     </a>
                 </div>
@@ -279,7 +279,7 @@ new class extends Component
                 @endif
 
                 <!-- User Profile Dropdown -->
-                <x-dropdown align="right" width="48">
+                <x-dropdown align="right" width="w-80">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center gap-2 px-2.5 py-1 border border-white/15 text-xs font-bold rounded-lg text-brand-white bg-white/10 hover:bg-white/15 focus:outline-none transition">
                             <div class="w-6 h-6 rounded-full bg-brand-lime text-brand-black flex items-center justify-center font-black text-[11px]">
@@ -294,6 +294,17 @@ new class extends Component
                     </x-slot>
 
                     <x-slot name="content">
+                        <!-- Cabecera del Perfil con Versión SemVer -->
+                        <div class="px-4 py-2.5 border-b border-ui-border flex items-center justify-between gap-2 bg-ui-subtle/50">
+                            <div class="min-w-0">
+                                <div class="text-xs font-extrabold text-ui-fg truncate">{{ auth()->user()->name }}</div>
+                                <div class="text-[10px] text-ui-muted truncate">{{ auth()->user()->email }}</div>
+                            </div>
+                            <span class="bg-brand-cobalt text-brand-white dark:bg-brand-lime dark:text-brand-black font-mono font-black text-[10px] px-2 py-0.5 rounded shrink-0" title="Versión SemVer del Sistema">
+                                {{ $cadVersionTag ?? 'v1.3.0' }}
+                            </span>
+                        </div>
+
                         <x-dropdown-link :href="route('profile')" wire:navigate>
                             <i class="fa-solid fa-id-badge mr-1.5 text-ui-muted" aria-hidden="true"></i> {{ __('Mi Perfil') }}
                         </x-dropdown-link>
@@ -307,6 +318,36 @@ new class extends Component
                         <x-dropdown-link :href="route('system.docs')">
                             <i class="fa-solid fa-book-open mr-1.5 text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i> {{ __('Manual del Sistema') }}
                         </x-dropdown-link>
+
+                        <!-- Sección de Versión SemVer y Resumen de Cambios (Sincronizado desde main) -->
+                        @if(!empty($cadLatestRelease))
+                            <div class="px-3.5 py-2.5 border-t border-b border-ui-border bg-ui-subtle/60 text-left" @click.stop>
+                                <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                                    <span class="text-[10px] font-black uppercase tracking-wider text-brand-cobalt dark:text-brand-lime flex items-center gap-1">
+                                        <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
+                                        <span>Versión {{ $cadVersionTag ?? 'v1.3.0' }}</span>
+                                    </span>
+                                    <span class="text-[9px] font-mono text-ui-muted">{{ $cadLatestRelease['date'] ?? '' }}</span>
+                                </div>
+                                <div class="text-[11px] font-bold text-ui-fg mb-1.5 leading-snug">
+                                    {{ $cadLatestRelease['title'] ?? 'Resumen de Cambios' }}
+                                </div>
+                                <ul class="space-y-1 text-[10px] text-ui-muted mb-2">
+                                    @foreach(array_slice($cadLatestRelease['changes'] ?? [], 0, 3) as $chg)
+                                        <li class="flex items-start gap-1 leading-tight">
+                                            <span class="text-brand-lime font-black">•</span>
+                                            <span class="line-clamp-2">{{ $chg['description'] ?? '' }}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                <button type="button"
+                                        @click="showChangelogModal = true"
+                                        class="w-full text-center text-[10px] font-extrabold py-1 px-2 rounded bg-brand-cobalt/10 hover:bg-brand-cobalt/20 text-brand-cobalt dark:bg-brand-lime/15 dark:hover:bg-brand-lime/25 dark:text-brand-lime transition">
+                                    <i class="fa-solid fa-list-check mr-1" aria-hidden="true"></i>
+                                    Ver Changelog completo ({{ count($cadReleases ?? []) }} versiones)
+                                </button>
+                            </div>
+                        @endif
 
                         <!-- Authentication -->
                         <button wire:click="logout" class="w-full text-start">
@@ -379,14 +420,110 @@ new class extends Component
             @endrole
         </div>
 
-        <div class="pt-3 pb-3 border-t border-white/15 px-4 flex justify-between items-center">
-            <div>
-                <div class="font-bold text-sm text-brand-white">{{ auth()->user()->name }}</div>
-                <div class="text-xs text-brand-cobalt-light">{{ auth()->user()->email }}</div>
+        <div class="pt-3 pb-3 border-t border-white/15 px-4 space-y-2">
+            <div class="flex justify-between items-center">
+                <div>
+                    <div class="font-bold text-sm text-brand-white flex items-center gap-2">
+                        <span>{{ auth()->user()->name }}</span>
+                        <span class="bg-brand-lime text-brand-black font-mono font-black text-[10px] px-1.5 py-0.5 rounded">{{ $cadVersionTag ?? 'v1.3.0' }}</span>
+                    </div>
+                    <div class="text-xs text-brand-cobalt-light">{{ auth()->user()->email }}</div>
+                </div>
+                <button wire:click="logout" class="bg-priority-critical text-brand-white text-xs font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5">
+                    <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Salir
+                </button>
             </div>
-            <button wire:click="logout" class="bg-priority-critical text-brand-white text-xs font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5">
-                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Salir
+            <button type="button"
+                    @click="showChangelogModal = true; open = false"
+                    class="w-full text-left text-[11px] text-brand-lime-light hover:underline flex items-center gap-1.5 pt-1">
+                <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
+                <span>Ver novedades de la versión {{ $cadVersionTag ?? 'v1.3.0' }} y Changelog</span>
             </button>
+        </div>
+    </div>
+
+    <!-- Modal de Historial de Versiones SemVer y Changelog (PRs) -->
+    <div x-show="showChangelogModal"
+         x-transition.opacity
+         style="display: none;"
+         @keydown.escape.window="showChangelogModal = false"
+         class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-ui-card border border-ui-border text-ui-fg rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden my-8"
+             @click.outside="showChangelogModal = false">
+            <!-- Header del Modal -->
+            <div class="bg-ui-sidebar text-brand-white px-6 py-4 flex items-center justify-between border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-brand-lime text-brand-black flex items-center justify-center font-black text-sm">
+                        <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-black tracking-wide uppercase">Registro de Versiones (Changelog)</span>
+                            <span class="bg-brand-lime text-brand-black font-mono text-[10px] font-black px-2 py-0.5 rounded">{{ $cadVersionTag ?? 'v1.3.0' }}</span>
+                        </div>
+                        <p class="text-[11px] text-brand-cobalt-light">Versionado Semántico (SemVer) sincronizado automáticamente desde rama main</p>
+                    </div>
+                </div>
+                <button type="button"
+                        @click="showChangelogModal = false"
+                        class="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition">
+                    <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <!-- Lista de Versiones y PRs -->
+            <div class="p-6 max-h-[70vh] overflow-y-auto space-y-4">
+                @foreach($cadReleases ?? [] as $idx => $rel)
+                    <div class="p-4 rounded-xl border {{ $idx === 0 ? 'bg-brand-cobalt/5 border-brand-cobalt/40 dark:bg-brand-lime/5 dark:border-brand-lime/40' : 'bg-ui-subtle border-ui-border' }}">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2 border-b border-ui-border pb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-black text-xs px-2 py-0.5 rounded {{ $idx === 0 ? 'bg-brand-lime text-brand-black' : 'bg-slate-700 text-white' }}">
+                                    v{{ $rel['version'] }}
+                                </span>
+                                <span class="font-extrabold text-sm text-ui-fg">{{ $rel['title'] ?? '' }}</span>
+                                @if($idx === 0)
+                                    <span class="text-[9px] uppercase font-black bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">
+                                        Actual
+                                    </span>
+                                @endif
+                            </div>
+                            <span class="text-xs font-mono text-ui-muted">{{ $rel['date'] }}</span>
+                        </div>
+
+                        @if(!empty($rel['pr_refs']))
+                            <div class="flex flex-wrap items-center gap-1.5 mb-2.5">
+                                <span class="text-[10px] font-bold text-ui-muted uppercase">Referencias / PRs:</span>
+                                @foreach($rel['pr_refs'] as $prRef)
+                                    <span class="bg-ui-card border border-ui-border px-2 py-0.5 rounded font-mono text-[10px] font-bold text-brand-cobalt dark:text-brand-lime">
+                                        {{ $prRef }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <ul class="space-y-1.5 text-xs">
+                            @foreach($rel['changes'] ?? [] as $change)
+                                <li class="flex items-start gap-2">
+                                    <span class="mt-0.5 px-1.5 py-0.2 rounded text-[9px] font-black uppercase shrink-0 {{ ($change['type'] ?? '') === 'feat' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : (($change['type'] ?? '') === 'fix' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-blue-500/15 text-blue-600 dark:text-blue-400') }}">
+                                        {{ strtoupper($change['type'] ?? 'cambio') }}
+                                    </span>
+                                    <span class="text-ui-fg">{{ $change['description'] ?? '' }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endforeach
+            </div>
+
+            <!-- Footer -->
+            <div class="px-6 py-3 bg-ui-subtle border-t border-ui-border flex items-center justify-between text-xs text-ui-muted">
+                <span>Estándar <strong>Semantic Versioning 2.0.0</strong></span>
+                <button type="button"
+                        @click="showChangelogModal = false"
+                        class="px-4 py-1.5 rounded-lg bg-brand-cobalt text-white font-bold text-xs hover:bg-brand-cobalt-deep transition">
+                    Cerrar
+                </button>
+            </div>
         </div>
     </div>
 </nav>

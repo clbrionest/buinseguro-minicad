@@ -3,11 +3,13 @@
 namespace App\Providers;
 
 use App\Models\AuditLog;
+use App\Services\VersionService;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -17,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(VersionService::class, fn () => new VersionService);
     }
 
     /**
@@ -25,6 +27,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        View::composer('*', function ($view): void {
+            if ($view->offsetExists('cadVersionTag')) {
+                return;
+            }
+            $versionService = app(VersionService::class);
+            $view->with([
+                'cadVersion' => $versionService->getVersion(),
+                'cadVersionTag' => $versionService->getVersionTag(),
+                'cadLatestRelease' => $versionService->getLatestRelease(),
+                'cadReleases' => $versionService->getReleases(8),
+                'cadRecentChanges' => $versionService->getRecentChangesSummary(5),
+            ]);
+        });
         // Auditoría y registro de eventos de autenticación
         Event::listen(Login::class, function (Login $event): void {
             AuditLog::record(

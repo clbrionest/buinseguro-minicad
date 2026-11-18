@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -85,6 +87,9 @@ jobs:
         continue-on-error: true
         run: vendor/bin/pint --test
 
+      - name: Verify SemVer & Changelog
+        run: php artisan version:sync --dry-run
+
       - name: Run Laravel tests
         env:
           APP_ENV: testing
@@ -95,3 +100,17 @@ jobs:
           QUEUE_CONNECTION: sync
           MAIL_MAILER: log
         run: php artisan test
+
+      - name: Auto-update SemVer & CHANGELOG on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && matrix.php == '8.4'
+        run: |
+          php artisan version:sync
+          if ! git diff --quiet version.json CHANGELOG.md package.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            NEW_VER=$(php -r '$d = json_decode(file_get_contents("version.json"), true); echo $d["version"] ?? "1.0.0";')
+            git add version.json CHANGELOG.md package.json
+            git commit -m "chore(release): bump SemVer to v${NEW_VER} [skip ci]"
+            git tag -f "v${NEW_VER}"
+            git push origin HEAD:main --tags
+          fi

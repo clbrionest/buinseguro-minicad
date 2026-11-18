@@ -49,7 +49,7 @@
                         <div>
                             <div class="flex items-center gap-2">
                                 <span class="font-black text-xl tracking-wider text-brand-white">BUIN SEGURO</span>
-                                <span class="bg-brand-lime text-brand-black text-[10px] font-black uppercase px-2 py-0.5 rounded">CAD v1.0</span>
+                                <span class="bg-brand-lime text-brand-black text-[10px] font-black font-mono uppercase px-2 py-0.5 rounded">CAD {{ $cadVersionTag ?? 'v1.3.0' }}</span>
                             </div>
                             <p class="text-xs text-brand-cobalt-light font-semibold uppercase tracking-widest">Dirección de Seguridad Pública • I. Municipalidad de Buin</p>
                         </div>
@@ -109,7 +109,10 @@
                             <img src="{{ asset('escudo.svg') }}" alt="Escudo I. Municipalidad de Buin" class="h-full w-auto object-contain">
                         </div>
                         <div>
-                            <span class="font-black text-sm tracking-wider text-ui-fg block leading-none">BUIN SEGURO CAD</span>
+                            <span class="font-black text-sm tracking-wider text-ui-fg flex items-center gap-1.5 leading-none">
+                                <span>BUIN SEGURO CAD</span>
+                                <span class="bg-brand-lime text-brand-black text-[9px] font-black font-mono px-1.5 py-0.5 rounded">{{ $cadVersionTag ?? 'v1.3.0' }}</span>
+                            </span>
                             <span class="text-[10px] text-ui-muted uppercase font-bold">Central de Despacho</span>
                         </div>
                     </div>
@@ -128,7 +131,7 @@
                     <div class="lg:hidden text-xs font-bold text-brand-cobalt dark:text-brand-lime font-mono">
                         Fonos Emergencias: 1426 • 800 00 2015
                     </div>
-                    <div>© {{ date('Y') }} Ilustre Municipalidad de Buin • Dirección de Seguridad Pública</div>
+                    <div>© {{ date('Y') }} Ilustre Municipalidad de Buin • Dirección de Seguridad Pública • <span class="font-mono font-bold text-ui-fg">MiniCAD {{ $cadVersionTag ?? 'v1.3.0' }}</span></div>
                 </div>
             </div>
         </div>
