@@ -671,11 +671,15 @@ class CadSecurityAndAuditTest extends TestCase
         // 1. Vincular llamada a procedimiento existente
         Livewire::actingAs($operator)
             ->test(CallsReport::class)
+            ->assertDontSee('Anexo Receptor')
+            ->assertSeeHtml('wire:key="call-audio-'.$call->id.'"')
             ->call('openLinkModal', $call->id)
             ->assertSet('isLinkModalOpen', true)
             ->assertSet('selectedCallForLinkingId', $call->id)
             ->call('linkCallToProcedure', $procedure->id)
-            ->assertSet('isLinkModalOpen', false);
+            ->assertSet('isLinkModalOpen', false)
+            ->assertSee('Caso #'.$procedure->id)
+            ->assertDontSee('Caso Folio #'.$procedure->id);
 
         $this->assertSame($procedure->id, $call->fresh()->procedure_id);
         $this->assertSame($call->id, $procedure->fresh()->call_id);
