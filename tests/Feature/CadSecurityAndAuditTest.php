@@ -11,6 +11,7 @@ use App\Livewire\IncomingCallPopup;
 use App\Livewire\ManageCatalogs;
 use App\Livewire\ManageOperatorShifts;
 use App\Livewire\ShowProcedure;
+use App\Livewire\UnattendedCallsBanner;
 use App\Mail\ShiftClosedReportMail;
 use App\Models\AuditLog;
 use App\Models\Call;
@@ -1106,5 +1107,125 @@ class CadSecurityAndAuditTest extends TestCase
             ->test(EmergencyDispatchAlert::class)
             ->assertSet('showEmergencyModal', true)
             ->assertSee('Procedimiento Traspasado / Asignado');
+    }
+
+    public function test_call_notifications_mute_timeout_unattended_banner_and_single_inspector_alert(): void
+    {
+        $sector = Sector::create(['name' => 'Sector Norte']);
+        $type = ProcedureType::create(['name' => 'Ruidos Molestos']);
+        $origin = Origin::create(['name' => '1426']);
+        $device = Device::create(['name' => 'Móvil 30', 'operational_status' => 'Disponible']);
+
+        $operator = User::factory()->create(['name' => 'Operador Central', 'extension' => '108']);
+        $operator->assignRole('Operador');
+        $operator->sectors()->attach($sector->id);
+
+        $inspector = User::factory()->create(['name' => 'Inspector Terreno M30']);
+        $inspector->assignRole('Inspector');
+
+        $shift = PatrolAssignment::create([
+            'date' => today()->toDateString(),
+            'shift_name' => 'Turno Tarde',
+            'device_id' => $device->id,
+            'sector_id' => $sector->id,
+            'is_active' => true,
+        ]);
+        $shift->crew()->attach($inspector->id, ['role' => 'Conductor']);
+
+        // 1 y 2. Operador puede recibir llamada con timeout de 10s, auto-cerrarla, y desactivar notificaciones (sonido + popup)
+        $call1 = Call::create([
+            'asterisk_id' => 'ast-ux-001',
+            'caller_id' => '+56912340001',
+            'extension' => '108',
+            'status' => 'ringing',
+        ]);
+
+        $call2 = Call::create([
+            'asterisk_id' => 'ast-ux-002',
+            'caller_id' => '+56912340002',
+            'extension' => '108',
+            'status' => 'completed',
+        ]);
+
+        // Llamada ya clasificada (NO debe contar como sin atender)
+        Call::create([
+            'asterisk_id' => 'ast-ux-003',
+            'caller_id' => '+56912340003',
+            'extension' => '108',
+            'status' => 'completed',
+            'classification' => 'Información General',
+        ]);
+
+        $popup = Livewire::actingAs($operator)
+            ->test(IncomingCallPopup::class)
+            ->assertSet('notificationsMuted', false)
+            ->call('handleIncomingCall', [
+                'call' => [
+                    'id' => $call1->id,
+                    'caller_id' => $call1->caller_id,
+                    'extension' => $call1->extension,
+                ],
+            ])
+            ->assertSet('showModal', true)
+            ->assertDispatched('play-ringtone', duration: 10);
+
+        // Si pasan los 10 segundos sin atender, autoDismiss cierra el popup y detiene el sonido
+        $popup->call('autoDismiss')
+            ->assertSet('showModal', false)
+            ->assertDispatched('stop-ringtone');
+
+        // Al desactivar notificaciones, una nueva llamada NO abre popup ni reproduce sonido
+        $popup->call('toggleNotifications')
+            ->assertSet('notificationsMuted', true)
+            ->assertDispatched('call-notifications-state-changed', muted: true)
+            ->call('handleIncomingCall', [
+                'call' => [
+                    'id' => $call2->id,
+                    'caller_id' => $call2->caller_id,
+                    'extension' => $call2->extension,
+                ],
+            ])
+            ->assertSet('showModal', false)
+            ->assertNotDispatched('play-ringtone');
+
+        // 3. Banner debajo de la barra de navegación indica al operador las llamadas sin atender (sin caso ni tipificación)
+        Livewire::actingAs($operator)
+            ->test(UnattendedCallsBanner::class)
+            ->assertSee('Tienes 2 llamadas sin atender en el sistema');
+
+        // Inspector NO ve el banner de llamadas sin atender
+        Livewire::actingAs($inspector)
+            ->test(UnattendedCallsBanner::class)
+            ->assertDontSee('sin atender en el sistema');
+
+        // 4. La alerta de asignación al inspector solo notifica una vez; al aceptar y navegar a otra página, NO vuelve a sonar
+        $procedure = Procedure::create([
+            'user_id' => $operator->id,
+            'origin_id' => $origin->id,
+            'sector_id' => $sector->id,
+            'procedure_type_id' => $type->id,
+            'initial_procedure_type_id' => $type->id,
+            'device_id' => $device->id,
+            'patrol_assignment_id' => $shift->id,
+            'exact_address' => 'Calle Libertad 777',
+            'status' => 'En Camino',
+            'dispatched_at' => now(),
+        ]);
+
+        // Primera vez: notifica y suena
+        Livewire::actingAs($inspector)
+            ->test(EmergencyDispatchAlert::class)
+            ->assertSet('showEmergencyModal', true)
+            ->assertDispatched('play-emergency-siren')
+            ->call('acknowledgeAndOpen')
+            ->assertSet('showEmergencyModal', false)
+            ->assertDispatched('stop-emergency-siren')
+            ->assertRedirect(route('procedures.show', $procedure->id));
+
+        // Segunda carga (simulando navegar a otra página del sistema): NO vuelve a mostrar modal ni emitir alerta sonora
+        Livewire::actingAs($inspector)
+            ->test(EmergencyDispatchAlert::class)
+            ->assertSet('showEmergencyModal', false)
+            ->assertNotDispatched('play-emergency-siren');
     }
 }

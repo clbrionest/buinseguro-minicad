@@ -1,10 +1,34 @@
 <?php
 
 use App\Livewire\Actions\Logout;
+use Illuminate\Support\Facades\Cache;
+use Livewire\Attributes\On;
 use Livewire\Volt\Component;
 
 new class extends Component
 {
+    public bool $callNotificationsMuted = false;
+
+    public function mount(): void
+    {
+        $user = auth()->user();
+        if ($user) {
+            $key = "call_notifications_muted_{$user->id}";
+            $this->callNotificationsMuted = (bool) session($key, Cache::get($key, false));
+        }
+    }
+
+    public function toggleCallNotifications(): void
+    {
+        $this->dispatch('toggle-call-notifications');
+    }
+
+    #[On('call-notifications-state-changed')]
+    public function syncCallNotificationsState(bool $muted): void
+    {
+        $this->callNotificationsMuted = $muted;
+    }
+
     /**
      * Log the current user out of the application.
      */
@@ -284,6 +308,17 @@ new class extends Component
                         <span>Anexo {{ auth()->user()->extension }}</span>
                     </span>
                 @endif
+
+                <!-- Toggle Notificaciones de Llamadas (Sonora y Visual) -->
+                @hasanyrole('Administrador|Supervisor|Operador')
+                    <button type="button"
+                            wire:click="toggleCallNotifications"
+                            title="{{ $callNotificationsMuted ? 'Notificaciones de llamadas desactivadas (clic para activar)' : 'Notificaciones de llamadas activas (clic para desactivar)' }}"
+                            class="border text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 transition {{ $callNotificationsMuted ? 'bg-amber-500/20 border-amber-400/50 text-amber-200 hover:bg-amber-500/30' : 'bg-white/10 border-white/15 text-brand-white hover:bg-white/15' }}">
+                        <i class="fa-solid {{ $callNotificationsMuted ? 'fa-bell-slash text-amber-300' : 'fa-bell text-brand-lime' }} text-[11px]" aria-hidden="true"></i>
+                        <span class="hidden xl:inline">{{ $callNotificationsMuted ? 'Llamadas Silenciadas' : 'Alertas Llamadas' }}</span>
+                    </button>
+                @endhasanyrole
 
                 <!-- User Profile Dropdown -->
                 <x-dropdown align="right" width="w-80">

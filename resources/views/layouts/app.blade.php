@@ -56,6 +56,10 @@
         <div class="min-h-screen bg-ui-app text-ui-fg flex flex-col">
             <livewire:layout.navigation />
 
+            @hasanyrole('Administrador|Supervisor|Operador')
+                <livewire:unattended-calls-banner />
+            @endhasanyrole
+
             <!-- Page Heading -->
             @if (isset($header))
                 <header class="bg-ui-card border-b border-ui-border shadow-xs">

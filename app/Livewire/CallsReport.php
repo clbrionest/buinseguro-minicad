@@ -8,6 +8,7 @@ use App\Models\Procedure;
 use App\Models\ProcedureLog;
 use App\Models\SystemCatalogItem;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -17,6 +18,7 @@ class CallsReport extends Component
 
     public $search = '';
 
+    #[Url(as: 'estado')]
     public $filterStatus = '';
 
     // Variables para el Modal de Tipificación
@@ -103,6 +105,7 @@ class CallsReport extends Component
         }
 
         $this->closeClassifyModal();
+        $this->dispatch('unattended-calls-updated');
         session()->flash('message', 'Llamada tipificada correctamente.');
     }
 
@@ -158,6 +161,7 @@ class CallsReport extends Component
         );
 
         $this->closeLinkModal();
+        $this->dispatch('unattended-calls-updated');
         session()->flash('message', "Llamada #{$call->id} vinculada exitosamente al Caso #{$procedure->id}.");
     }
 
@@ -194,6 +198,7 @@ class CallsReport extends Component
             );
         }
 
+        $this->dispatch('unattended-calls-updated');
         session()->flash('message', "Llamada #{$call->id} desvinculada del caso.");
     }
 
