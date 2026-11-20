@@ -5,6 +5,7 @@
          audioUnlocked: false,
          needsTouchToPlay: false,
          wavDataUri: null,
+         ackStorageKey: 'cad_ack_dispatches_{{ auth()->id() ?? 0 }}',
 
          init() {
              this.wavDataUri = this.generateAlertWavDataUri();
@@ -19,6 +20,28 @@
              ['touchstart', 'touchend', 'click', 'keydown'].forEach(evt => {
                  window.addEventListener(evt, unlockHandler, { passive: true });
              });
+         },
+
+         isLocallyAcknowledged(key) {
+             if (!key) return false;
+             try {
+                 const list = JSON.parse(localStorage.getItem(this.ackStorageKey) || '[]');
+                 return Array.isArray(list) && list.includes(key);
+             } catch (_) {
+                 return false;
+             }
+         },
+
+         markLocallyAcknowledged(key) {
+             if (!key) return;
+             try {
+                 const list = JSON.parse(localStorage.getItem(this.ackStorageKey) || '[]');
+                 const updated = Array.isArray(list) ? list : [];
+                 if (!updated.includes(key)) {
+                     updated.push(key);
+                     localStorage.setItem(this.ackStorageKey, JSON.stringify(updated.slice(-100)));
+                 }
+             } catch (_) {}
          },
 
          generateAlertWavDataUri() {
@@ -174,7 +197,11 @@
              }
          },
 
-         startSiren() {
+         startSiren(key = null) {
+             if (key && this.isLocallyAcknowledged(key)) {
+                 $wire.acknowledgeDispatch();
+                 return;
+             }
              this.stopSiren();
              this.playSirenCycle();
              this.sirenInterval = setInterval(() => {
@@ -182,7 +209,10 @@
              }, 2400);
          },
 
-         stopSiren() {
+         stopSiren(key = null) {
+             if (key) {
+                 this.markLocallyAcknowledged(key);
+             }
              if (this.sirenInterval) {
                  clearInterval(this.sirenInterval);
                  this.sirenInterval = null;
@@ -200,7 +230,7 @@
              }
          }
      }"
-     x-on:play-emergency-siren.window="startSiren()"
+     x-on:play-emergency-siren.window="startSiren($event.detail?.key ?? null)"
      x-on:stop-emergency-siren.window="stopSiren()">
 
     {{-- Reproductor de audio nativo oculto para compatibilidad con Safari / iOS iPhone --}}
@@ -278,19 +308,19 @@
                     <div class="pt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <button type="button"
                                 wire:click="acknowledgeDispatch"
-                                @click="stopSiren()"
+                                @click="stopSiren('{{ $alertProcedure['key'] }}')"
                                 class="min-h-[44px] w-full rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-4 py-2.5 transition flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-volume-xmark"></i>
                             <span>Enterado / Silenciar</span>
                         </button>
 
-                        <a href="{{ $alertProcedure['url'] }}"
-                           wire:click="acknowledgeDispatch"
-                           @click="stopSiren()"
-                           class="min-h-[44px] w-full rounded-xl bg-brand-lime hover:bg-brand-lime-mid text-brand-black font-black text-xs px-4 py-2.5 shadow-lg transition flex items-center justify-center gap-1.5">
+                        <button type="button"
+                                wire:click="acknowledgeAndOpen"
+                                @click="stopSiren('{{ $alertProcedure['key'] }}')"
+                                class="min-h-[44px] w-full rounded-xl bg-brand-lime hover:bg-brand-lime-mid text-brand-black font-black text-xs px-4 py-2.5 shadow-lg transition flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-arrow-right"></i>
                             <span>{{ $alertProcedure['action_label'] ?? 'Ir al Detalle →' }}</span>
-                        </a>
+                        </button>
                     </div>
                 </div>
             </div>

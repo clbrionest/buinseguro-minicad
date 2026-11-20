@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\PreventivePatrol;
 use App\Models\Procedure;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -33,8 +34,7 @@ class EmergencyDispatchAlert extends Component
         }
 
         $assignedDeviceIds = $user->assignedDeviceIds();
-        $sessionKey = 'acknowledged_dispatches_'.$user->id;
-        $acknowledged = session($sessionKey, []);
+        $acknowledged = $this->getAcknowledgedKeys($user->id);
 
         // 1. Verificar procedimientos asignados al móvil del turno o traspasados directamente al inspector
         $pendingProcedure = Procedure::with(['procedureType', 'sector', 'device'])
@@ -83,7 +83,7 @@ class EmergencyDispatchAlert extends Component
             $this->showEmergencyModal = true;
 
             if (! $wasAlreadyShowingSame) {
-                $this->dispatch('play-emergency-siren');
+                $this->dispatch('play-emergency-siren', key: $newKey);
             }
 
             return;
@@ -131,7 +131,7 @@ class EmergencyDispatchAlert extends Component
             $this->showEmergencyModal = true;
 
             if (! $wasAlreadyShowingSame) {
-                $this->dispatch('play-emergency-siren');
+                $this->dispatch('play-emergency-siren', key: $newKey);
             }
 
             return;
@@ -146,17 +146,62 @@ class EmergencyDispatchAlert extends Component
 
     public function acknowledgeDispatch(): void
     {
-        $userId = Auth::id();
-        if ($userId && $this->alertProcedure && isset($this->alertProcedure['key'])) {
-            $sessionKey = 'acknowledged_dispatches_'.$userId;
-            $acknowledged = session($sessionKey, []);
-            $acknowledged[] = $this->alertProcedure['key'];
-            session([$sessionKey => array_values(array_unique($acknowledged))]);
-        }
+        $this->persistAcknowledgement();
 
         $this->showEmergencyModal = false;
         $this->alertProcedure = null;
         $this->dispatch('stop-emergency-siren');
+    }
+
+    public function acknowledgeAndOpen(): void
+    {
+        $targetUrl = $this->alertProcedure['url'] ?? null;
+
+        $this->persistAcknowledgement();
+
+        $this->showEmergencyModal = false;
+        $this->alertProcedure = null;
+        $this->dispatch('stop-emergency-siren');
+
+        if ($targetUrl) {
+            $this->redirect($targetUrl, navigate: false);
+        }
+    }
+
+    protected function persistAcknowledgement(): void
+    {
+        $userId = Auth::id();
+        if ($userId && $this->alertProcedure && isset($this->alertProcedure['key'])) {
+            $key = $this->alertProcedure['key'];
+            $acknowledged = $this->getAcknowledgedKeys($userId);
+            $acknowledged[] = $key;
+            $unique = array_values(array_unique($acknowledged));
+
+            $storageKey = $this->ackStorageKey($userId);
+            session([$storageKey => $unique]);
+            session()->save();
+            Cache::put($storageKey, $unique, now()->addHours(24));
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    protected function getAcknowledgedKeys(int $userId): array
+    {
+        $storageKey = $this->ackStorageKey($userId);
+        $fromSession = session($storageKey, []);
+        $fromCache = Cache::get($storageKey, []);
+
+        return array_values(array_unique(array_merge(
+            is_array($fromSession) ? $fromSession : [],
+            is_array($fromCache) ? $fromCache : []
+        )));
+    }
+
+    protected function ackStorageKey(int $userId): string
+    {
+        return 'acknowledged_dispatches_'.$userId;
     }
 
     protected function procedureDispatchKey(Procedure $procedure): string

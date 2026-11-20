@@ -1,7 +1,11 @@
 <div
     x-data="{
         ringingInterval: null,
+        autoDismissTimer: null,
+        countdownInterval: null,
+        remainingSeconds: 10,
         audioContext: null,
+
         ringBurst() {
             try {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -46,27 +50,52 @@
                 console.warn('CAD Ringtone audio error:', err);
             }
         },
-        startRingtone() {
+
+        startRingtone(durationSec = 10) {
             this.stopRingtone();
+            const seconds = Number(durationSec) > 0 ? Number(durationSec) : 10;
+            this.remainingSeconds = seconds;
+
             this.ringBurst();
             this.ringingInterval = setInterval(() => {
                 this.ringBurst();
             }, 3500);
+
+            this.countdownInterval = setInterval(() => {
+                if (this.remainingSeconds > 0) {
+                    this.remainingSeconds--;
+                }
+            }, 1000);
+
+            // Detener alerta sonora y cerrar popup automáticamente tras 10 segundos si no fue atendida
+            this.autoDismissTimer = setTimeout(() => {
+                this.stopRingtone();
+                $wire.autoDismiss();
+            }, seconds * 1000);
         },
+
         stopRingtone() {
             if (this.ringingInterval) {
                 clearInterval(this.ringingInterval);
                 this.ringingInterval = null;
             }
+            if (this.autoDismissTimer) {
+                clearTimeout(this.autoDismissTimer);
+                this.autoDismissTimer = null;
+            }
+            if (this.countdownInterval) {
+                clearInterval(this.countdownInterval);
+                this.countdownInterval = null;
+            }
         }
     }"
-    x-on:play-ringtone.window="startRingtone()"
+    x-on:play-ringtone.window="startRingtone($event.detail?.duration ?? 10)"
     x-on:stop-ringtone.window="stopRingtone()"
 >
-    @if($showModal)
+    @if($showModal && !$notificationsMuted)
         <div class="fixed bottom-8 right-8 z-50 bg-white dark:bg-gray-800 border-l-8 border-green-500 shadow-2xl rounded-lg p-6 w-96 animate-bounce-short">
             
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center space-x-3">
                     <span class="relative flex h-4 w-4">
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -74,10 +103,22 @@
                     </span>
                     <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wider">¡Llamada Entrante!</h3>
                 </div>
-                
-                <button wire:click="dismiss" @click="stopRingtone()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus:outline-none" title="Cerrar">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700"
+                          title="Se cerrará automáticamente si no es atendida">
+                        <span x-text="remainingSeconds">10</span>s
+                    </span>
+                    <button wire:click="dismiss" @click="stopRingtone()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus:outline-none" title="Cerrar">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Barra visual de cuenta regresiva (10 segundos) --}}
+            <div class="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
+                <div class="h-full bg-green-500 transition-all duration-1000 ease-linear"
+                     :style="'width: ' + Math.max(0, (remainingSeconds / 10) * 100) + '%'"></div>
             </div>
             
             <div class="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded border border-gray-200 dark:border-gray-600 text-center">
@@ -115,10 +156,18 @@
                 </div>
             @endif
             
-            <div class="flex space-x-3">
+            <div class="space-y-2">
                 <button wire:click="createProcedure" @click="stopRingtone()" class="w-full bg-green-600 hover:bg-green-700 text-white font-black py-3 px-4 rounded-lg shadow-md flex items-center justify-center gap-2 transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
                     ATENDER Y CREAR CASO
+                </button>
+
+                <button type="button"
+                        wire:click="toggleNotifications"
+                        @click="stopRingtone()"
+                        class="w-full text-[11px] font-bold text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 py-1 transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-bell-slash" aria-hidden="true"></i>
+                    <span>Desactivar notificaciones de llamadas</span>
                 </button>
             </div>
         </div>
