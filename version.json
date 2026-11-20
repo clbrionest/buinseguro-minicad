@@ -1,9 +1,63 @@
 {
-    "version": "1.6.0",
+    "version": "1.7.0",
     "released_at": "2026-11-18",
     "branch": "main",
-    "last_commit": "2985b11",
+    "last_commit": "f4cf8b4",
     "releases": [
+        {
+            "version": "1.7.0",
+            "date": "2026-11-18",
+            "type": "minor",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #22",
+                "PR #21",
+                "PR #20",
+                "PR #19"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #22 (fix/detalles-ux): auto dismiss de notificacion, posibilidad de desactivar notificaciones"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Auto dismiss de notificacion, posibilidad de desactivar notificaciones"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje-puntos",
+                    "description": "PR #21 (feat/patrullaje-puntos): fix del feat anterior, bloque duplicado"
+                },
+                {
+                    "type": "feat",
+                    "scope": "sistema",
+                    "description": "Fix del feat anterior, bloque duplicado"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje-puntos",
+                    "description": "PR #20 (feat/patrullaje-puntos): mejoras con modulo terreno, permisos y notificacion de procedimientos"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Mejoras con modulo terreno, permisos y notificacion de procedimientos"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje-puntos",
+                    "description": "PR #19 (feat/patrullaje-puntos): mejoras al modulo de terreno, allerta sonora y permisos"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Mejoras al modulo de terreno, allerta sonora y permisos"
+                }
+            ]
+        },
         {
             "version": "1.6.0",
             "date": "2026-11-18",

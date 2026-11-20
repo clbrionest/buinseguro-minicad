@@ -3,6 +3,23 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.7.0] - 2026-11-18 — `PR #22`, `PR #21`, `PR #20`, `PR #19`
+**Actualización Automática desde rama principal**
+
+### ✨ Nuevas Funcionalidades (Features)
+- **[patrullaje-puntos]** PR #21 (feat/patrullaje-puntos): fix del feat anterior, bloque duplicado
+- **[sistema]** Fix del feat anterior, bloque duplicado
+- **[patrullaje-puntos]** PR #20 (feat/patrullaje-puntos): mejoras con modulo terreno, permisos y notificacion de procedimientos
+- **[patrullaje-puntos]** PR #19 (feat/patrullaje-puntos): mejoras al modulo de terreno, allerta sonora y permisos
+
+### 🐛 Correcciones (Bug Fixes)
+- **[detalles-ux]** PR #22 (fix/detalles-ux): auto dismiss de notificacion, posibilidad de desactivar notificaciones
+
+### 🔧 Mantenimiento y Arquitectura (Chores)
+- **[sistema]** Auto dismiss de notificacion, posibilidad de desactivar notificaciones
+- **[sistema]** Mejoras con modulo terreno, permisos y notificacion de procedimientos
+- **[sistema]** Mejoras al modulo de terreno, allerta sonora y permisos
+
 ## [v1.6.0] - 2026-11-18 — `PR #18`
 **Actualización Automática desde rama principal**
 
