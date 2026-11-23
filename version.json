@@ -1,9 +1,77 @@
 {
-    "version": "1.5.0",
-    "released_at": "2026-11-23",
+    "version": "1.6.0",
+    "released_at": "2026-11-17",
     "branch": "main",
-    "last_commit": "0f26f99",
+    "last_commit": "e147941",
     "releases": [
+        {
+            "version": "1.6.0",
+            "date": "2026-11-17",
+            "type": "minor",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #23",
+                "PR #22",
+                "PR #21",
+                "PR #20",
+                "PR #19",
+                "PR #18",
+                "PR #17",
+                "PR #16"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #23 (fix/detalles-ux): pre-release a producción, mejora UX-UI"
+                },
+                {
+                    "type": "fix",
+                    "scope": "sistema",
+                    "description": "Merge branch 'main' into fix/detalles-ux"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Pre-release a producción, mejora UX-UI"
+                },
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #22 (fix/detalles-ux): auto dismiss de notificacion, posibilidad de desactivar notificaciones"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje-puntos",
+                    "description": "PR #21 (feat/patrullaje-puntos): fix del feat anterior, bloque duplicado"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje-puntos",
+                    "description": "PR #20 (feat/patrullaje-puntos): mejoras con modulo terreno, permisos y notificacion de procedimientos"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje-puntos",
+                    "description": "PR #19 (feat/patrullaje-puntos): mejoras al modulo de terreno, allerta sonora y permisos"
+                },
+                {
+                    "type": "feat",
+                    "scope": "patrullaje-puntos",
+                    "description": "PR #18 (feat/patrullaje-puntos): mejoras patrullaje preventivo y seguimiento gps"
+                },
+                {
+                    "type": "fix",
+                    "scope": "ui-modal-procedimiento",
+                    "description": "PR #17 (fix/ui-modal-procedimiento): mini mapa - correcciones en panel de direcciones"
+                },
+                {
+                    "type": "fix",
+                    "scope": "ui-fixes-historial",
+                    "description": "PR #16 (fix/ui-fixes-historial): correcciones en historial de llamados"
+                }
+            ]
+        },
         {
             "version": "1.5.0",
             "date": "2026-11-23",
