@@ -1,9 +1,51 @@
 {
-    "version": "1.7.0",
-    "released_at": "2026-11-18",
+    "version": "1.7.1",
+    "released_at": "2026-11-23",
     "branch": "main",
-    "last_commit": "f4cf8b4",
+    "last_commit": "eaaba39",
     "releases": [
+        {
+            "version": "1.7.1",
+            "date": "2026-11-23",
+            "type": "patch",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #24",
+                "PR #23"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #24 (fix/detalles-ux): fix: release anterior con problemas de sincronización"
+                },
+                {
+                    "type": "fix",
+                    "scope": "sistema",
+                    "description": "Merge branch 'main' into fix/detalles-ux"
+                },
+                {
+                    "type": "fix",
+                    "scope": "fix",
+                    "description": "Release anterior con problemas de sincronización"
+                },
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #23 (fix/detalles-ux): pre-release a producción, mejora UX-UI"
+                },
+                {
+                    "type": "fix",
+                    "scope": "sistema",
+                    "description": "Merge branch 'main' into fix/detalles-ux"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Pre-release a producción, mejora UX-UI"
+                }
+            ]
+        },
         {
             "version": "1.7.0",
             "date": "2026-11-18",

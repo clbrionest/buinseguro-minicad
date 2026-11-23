@@ -3,36 +3,58 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
-## [v1.6.0] - 2026-11-17 — `PR #23`, `PR #22`, `PR #21`, `PR #20`, `PR #19`, `PR #18`, `PR #17`, `PR #16`
+## [v1.7.1] - 2026-11-23 — `PR #24`, `PR #23`
 **Actualización Automática desde rama principal**
 
-### ✨ Nuevas Funcionalidades (Features)
-- **[patrullaje-puntos]** PR #21 (feat/patrullaje-puntos): fix del feat anterior, bloque duplicado
-- **[patrullaje-puntos]** PR #20 (feat/patrullaje-puntos): mejoras con modulo terreno, permisos y notificacion de procedimientos
-- **[patrullaje-puntos]** PR #19 (feat/patrullaje-puntos): mejoras al modulo de terreno, allerta sonora y permisos
-- **[patrullaje-puntos]** PR #18 (feat/patrullaje-puntos): mejoras patrullaje preventivo y seguimiento gps
-
 ### 🐛 Correcciones (Bug Fixes)
+- **[detalles-ux]** PR #24 (fix/detalles-ux): fix: release anterior con problemas de sincronización
+- **[sistema]** Merge branch 'main' into fix/detalles-ux
+- **[fix]** Release anterior con problemas de sincronización
 - **[detalles-ux]** PR #23 (fix/detalles-ux): pre-release a producción, mejora UX-UI
 - **[sistema]** Merge branch 'main' into fix/detalles-ux
-- **[detalles-ux]** PR #22 (fix/detalles-ux): auto dismiss de notificacion, posibilidad de desactivar notificaciones
-- **[ui-modal-procedimiento]** PR #17 (fix/ui-modal-procedimiento): mini mapa - correcciones en panel de direcciones
-- **[ui-fixes-historial]** PR #16 (fix/ui-fixes-historial): correcciones en historial de llamados
 
 ### 🔧 Mantenimiento y Arquitectura (Chores)
 - **[sistema]** Pre-release a producción, mejora UX-UI
 
-## [v1.5.0] - 2026-11-23 — `fix/ui-fixes-historial`, `fix/ui-modal-procedimiento`, `feat/patrullaje-puntos`, `fix/detalles-ux`
-**Release de Lanzamiento a Producción — Consola Terreno PWA, Rutas GPS y UX Operativa**
+## [v1.7.0] - 2026-11-18 — `PR #22`, `PR #21`, `PR #20`, `PR #19`
+**Actualización Automática desde rama principal**
 
 ### ✨ Nuevas Funcionalidades (Features)
-- **[terreno-pwa]** Consola Móvil Operativa para Inspectores como PWA instalable con tracking GPS continuo, vista de terreno por defecto, cambio de estado de móvil asignado y adición de puntos adicionales en patrullajes preventivos.
-- **[mapa-operativo]** Seguimiento de rutas GPS de móviles en tiempo real, vectores de despacho y selector de capas de visualización (Procedimientos, Móviles, Ruta GPS).
-- **[procedimientos]** Mini mapa interactivo de georreferenciación con exclusión mutua Hito vs Dirección Exacta, control de autoría de antecedentes/bitácora, restricción de audio/visibilidad para inspectores y traspaso de procedimientos.
-- **[notificaciones-ux]** Alertas sonoras compatibles con iPhone/iOS de notificación única, desactivación de alertas de llamadas, auto-cierre a 10 segundos, tarjeta de llamadas sin atender y menú de perfil consolidado.
+- **[patrullaje-puntos]** PR #21 (feat/patrullaje-puntos): fix del feat anterior, bloque duplicado
+- **[sistema]** Fix del feat anterior, bloque duplicado
+- **[patrullaje-puntos]** PR #20 (feat/patrullaje-puntos): mejoras con modulo terreno, permisos y notificacion de procedimientos
+- **[patrullaje-puntos]** PR #19 (feat/patrullaje-puntos): mejoras al modulo de terreno, allerta sonora y permisos
+
+### 🐛 Correcciones (Bug Fixes)
+- **[detalles-ux]** PR #22 (fix/detalles-ux): auto dismiss de notificacion, posibilidad de desactivar notificaciones
 
 ### 🔧 Mantenimiento y Arquitectura (Chores)
-- **[lanzamiento]** Comando de uso único (minicad:reset-procedures-for-launch) para reiniciar únicamente procedimientos a 0 conservando todos los mantenedores intactos, y detalles de versión restringidos a Administradores.
+- **[sistema]** Auto dismiss de notificacion, posibilidad de desactivar notificaciones
+- **[sistema]** Mejoras con modulo terreno, permisos y notificacion de procedimientos
+- **[sistema]** Mejoras al modulo de terreno, allerta sonora y permisos
+
+## [v1.6.0] - 2026-11-18 — `PR #18`
+**Actualización Automática desde rama principal**
+
+### ✨ Nuevas Funcionalidades (Features)
+- **[patrullaje-puntos]** PR #18 (feat/patrullaje-puntos): mejoras patrullaje preventivo y seguimiento gps
+- **[sistema]** Mejoras patrullaje preventivo y seguimiento gps
+
+## [v1.5.0] - 2026-11-17 — `PR #17`
+**Actualización Automática desde rama principal**
+
+### ✨ Nuevas Funcionalidades (Features)
+- **[sistema]** Mini mapa - correcciones en panel de direcciones
+
+### 🐛 Correcciones (Bug Fixes)
+- **[ui-modal-procedimiento]** PR #17 (fix/ui-modal-procedimiento): mini mapa - correcciones en panel de direcciones
+
+## [v1.4.1] - 2026-11-17 — `PR #16`
+**Actualización Automática desde rama principal**
+
+### 🐛 Correcciones (Bug Fixes)
+- **[ui-fixes-historial]** PR #16 (fix/ui-fixes-historial): correcciones en historial de llamados
+- **[sistema]** Correcciones en historial de llamados
 
 ## [v1.4.0] - 2026-11-17 — `PR #15`, `PR #14`, `PR #13`, `PR #12`, `PR #11`, `PR #10`, `PR #9`, `PR #8`
 **Actualización Automática desde rama principal**
