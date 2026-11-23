@@ -179,13 +179,13 @@ class SemVerAndChangelogTest extends TestCase
         $this->assertDatabaseCount('procedures', 0);
         $this->assertDatabaseCount('procedure_logs', 0);
         $this->assertDatabaseCount('evidence', 0);
+        $this->assertDatabaseCount('calls', 0);
 
-        // Los mantenedores y el historial de llamadas permanecen intactos
+        // Los mantenedores permanecen intactos
         $this->assertDatabaseHas('sectors', ['name' => 'Sector Centro']);
         $this->assertDatabaseHas('origins', ['name' => '1426']);
         $this->assertDatabaseHas('procedure_types', ['name' => 'Ruidos Molestos']);
         $this->assertDatabaseHas('devices', ['name' => 'M-01']);
-        $this->assertDatabaseHas('calls', ['id' => $call->id, 'procedure_id' => null]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'system.procedures_launch_reset']);
 
         // 3. Una segunda ejecución queda estrictamente bloqueada (uso único)
