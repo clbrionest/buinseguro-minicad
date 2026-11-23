@@ -1,6 +1,17 @@
 @props([
     'compact' => false,
+    'surface' => 'navbar',
 ])
+
+@php
+    $containerClasses = $surface === 'menu'
+        ? 'inline-flex items-center rounded-lg p-0.5 bg-ui-card border border-ui-border text-xs w-full justify-between'
+        : 'inline-flex items-center rounded-lg p-0.5 bg-[#1D1F59]/80 dark:bg-[#10131D] border border-white/15 text-xs';
+
+    $inactiveBtnClasses = $surface === 'menu'
+        ? 'text-ui-muted hover:text-ui-fg hover:bg-ui-subtle font-semibold'
+        : 'text-white/80 hover:text-white hover:bg-white/10 font-semibold';
+@endphp
 
 <div
     x-data="{
@@ -30,7 +41,7 @@
     }"
     role="group"
     aria-label="Selector de apariencia del sistema"
-    {{ $attributes->merge(['class' => 'inline-flex items-center rounded-lg p-0.5 bg-[#1D1F59]/80 dark:bg-[#10131D] border border-white/15 text-xs']) }}
+    {{ $attributes->merge(['class' => $containerClasses]) }}
 >
     <button
         type="button"
@@ -40,12 +51,12 @@
         aria-label="Apariencia Clara"
         :class="pref === 'light'
             ? 'bg-brand-lime text-brand-black font-extrabold shadow-xs'
-            : 'text-white/80 hover:text-white hover:bg-white/10 font-semibold'"
-        class="px-2 py-1 rounded-md inline-flex items-center gap-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime"
+            : '{{ $inactiveBtnClasses }}'"
+        class="px-2 py-1 rounded-md inline-flex items-center justify-center gap-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime {{ $surface === 'menu' ? 'flex-1' : '' }}"
     >
         <i class="fa-solid fa-sun text-[11px]" aria-hidden="true"></i>
         @if(!$compact)
-            <span class="hidden xl:inline text-[11px]">Claro</span>
+            <span class="{{ $surface === 'menu' ? 'text-[11px]' : 'hidden xl:inline text-[11px]' }}">Claro</span>
         @endif
     </button>
 
@@ -57,12 +68,12 @@
         aria-label="Apariencia Oscura"
         :class="pref === 'dark'
             ? 'bg-brand-lime text-brand-black font-extrabold shadow-xs'
-            : 'text-white/80 hover:text-white hover:bg-white/10 font-semibold'"
-        class="px-2 py-1 rounded-md inline-flex items-center gap-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime"
+            : '{{ $inactiveBtnClasses }}'"
+        class="px-2 py-1 rounded-md inline-flex items-center justify-center gap-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime {{ $surface === 'menu' ? 'flex-1' : '' }}"
     >
         <i class="fa-solid fa-moon text-[11px]" aria-hidden="true"></i>
         @if(!$compact)
-            <span class="hidden xl:inline text-[11px]">Oscuro</span>
+            <span class="{{ $surface === 'menu' ? 'text-[11px]' : 'hidden xl:inline text-[11px]' }}">Oscuro</span>
         @endif
     </button>
 
@@ -74,12 +85,12 @@
         aria-label="Apariencia Automática según el sistema operativo"
         :class="pref === 'system'
             ? 'bg-brand-lime text-brand-black font-extrabold shadow-xs'
-            : 'text-white/80 hover:text-white hover:bg-white/10 font-semibold'"
-        class="px-2 py-1 rounded-md inline-flex items-center gap-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime"
+            : '{{ $inactiveBtnClasses }}'"
+        class="px-2 py-1 rounded-md inline-flex items-center justify-center gap-1 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-lime {{ $surface === 'menu' ? 'flex-1' : '' }}"
     >
         <i class="fa-solid fa-desktop text-[11px]" aria-hidden="true"></i>
         @if(!$compact)
-            <span class="hidden xl:inline text-[11px]">Auto</span>
+            <span class="{{ $surface === 'menu' ? 'text-[11px]' : 'hidden xl:inline text-[11px]' }}">Auto</span>
         @endif
     </button>
 </div>

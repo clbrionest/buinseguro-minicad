@@ -1,123 +1,45 @@
 {
-    "version": "1.7.0",
-    "released_at": "2026-11-18",
+    "version": "1.5.0",
+    "released_at": "2026-11-23",
     "branch": "main",
-    "last_commit": "f4cf8b4",
+    "last_commit": "0f26f99",
     "releases": [
         {
-            "version": "1.7.0",
-            "date": "2026-11-18",
-            "type": "minor",
-            "title": "Actualización Automática desde rama principal",
-            "pr_refs": [
-                "PR #22",
-                "PR #21",
-                "PR #20",
-                "PR #19"
-            ],
-            "changes": [
-                {
-                    "type": "fix",
-                    "scope": "detalles-ux",
-                    "description": "PR #22 (fix/detalles-ux): auto dismiss de notificacion, posibilidad de desactivar notificaciones"
-                },
-                {
-                    "type": "chore",
-                    "scope": "sistema",
-                    "description": "Auto dismiss de notificacion, posibilidad de desactivar notificaciones"
-                },
-                {
-                    "type": "feat",
-                    "scope": "patrullaje-puntos",
-                    "description": "PR #21 (feat/patrullaje-puntos): fix del feat anterior, bloque duplicado"
-                },
-                {
-                    "type": "feat",
-                    "scope": "sistema",
-                    "description": "Fix del feat anterior, bloque duplicado"
-                },
-                {
-                    "type": "feat",
-                    "scope": "patrullaje-puntos",
-                    "description": "PR #20 (feat/patrullaje-puntos): mejoras con modulo terreno, permisos y notificacion de procedimientos"
-                },
-                {
-                    "type": "chore",
-                    "scope": "sistema",
-                    "description": "Mejoras con modulo terreno, permisos y notificacion de procedimientos"
-                },
-                {
-                    "type": "feat",
-                    "scope": "patrullaje-puntos",
-                    "description": "PR #19 (feat/patrullaje-puntos): mejoras al modulo de terreno, allerta sonora y permisos"
-                },
-                {
-                    "type": "chore",
-                    "scope": "sistema",
-                    "description": "Mejoras al modulo de terreno, allerta sonora y permisos"
-                }
-            ]
-        },
-        {
-            "version": "1.6.0",
-            "date": "2026-11-18",
-            "type": "minor",
-            "title": "Actualización Automática desde rama principal",
-            "pr_refs": [
-                "PR #18"
-            ],
-            "changes": [
-                {
-                    "type": "feat",
-                    "scope": "patrullaje-puntos",
-                    "description": "PR #18 (feat/patrullaje-puntos): mejoras patrullaje preventivo y seguimiento gps"
-                },
-                {
-                    "type": "feat",
-                    "scope": "sistema",
-                    "description": "Mejoras patrullaje preventivo y seguimiento gps"
-                }
-            ]
-        },
-        {
             "version": "1.5.0",
-            "date": "2026-11-17",
+            "date": "2026-11-23",
             "type": "minor",
-            "title": "Actualización Automática desde rama principal",
+            "title": "Release de Lanzamiento a Producción — Consola Terreno PWA, Rutas GPS y UX Operativa",
             "pr_refs": [
-                "PR #17"
+                "fix/ui-fixes-historial",
+                "fix/ui-modal-procedimiento",
+                "feat/patrullaje-puntos",
+                "fix/detalles-ux"
             ],
             "changes": [
                 {
-                    "type": "fix",
-                    "scope": "ui-modal-procedimiento",
-                    "description": "PR #17 (fix/ui-modal-procedimiento): mini mapa - correcciones en panel de direcciones"
+                    "type": "feat",
+                    "scope": "terreno-pwa",
+                    "description": "Consola Móvil Operativa para Inspectores como PWA instalable con tracking GPS continuo, vista de terreno por defecto, cambio de estado de móvil asignado y adición de puntos adicionales en patrullajes preventivos."
                 },
                 {
                     "type": "feat",
-                    "scope": "sistema",
-                    "description": "Mini mapa - correcciones en panel de direcciones"
-                }
-            ]
-        },
-        {
-            "version": "1.4.1",
-            "date": "2026-11-17",
-            "type": "patch",
-            "title": "Actualización Automática desde rama principal",
-            "pr_refs": [
-                "PR #16"
-            ],
-            "changes": [
-                {
-                    "type": "fix",
-                    "scope": "ui-fixes-historial",
-                    "description": "PR #16 (fix/ui-fixes-historial): correcciones en historial de llamados"
+                    "scope": "mapa-operativo",
+                    "description": "Seguimiento de rutas GPS de móviles en tiempo real, vectores de despacho y selector de capas de visualización (Procedimientos, Móviles, Ruta GPS)."
                 },
                 {
-                    "type": "fix",
-                    "scope": "sistema",
-                    "description": "Correcciones en historial de llamados"
+                    "type": "feat",
+                    "scope": "procedimientos",
+                    "description": "Mini mapa interactivo de georreferenciación con exclusión mutua Hito vs Dirección Exacta, control de autoría de antecedentes/bitácora, restricción de audio/visibilidad para inspectores y traspaso de procedimientos."
+                },
+                {
+                    "type": "feat",
+                    "scope": "notificaciones-ux",
+                    "description": "Alertas sonoras compatibles con iPhone/iOS de notificación única, desactivación de alertas de llamadas, auto-cierre a 10 segundos, tarjeta de llamadas sin atender y menú de perfil consolidado."
+                },
+                {
+                    "type": "chore",
+                    "scope": "lanzamiento",
+                    "description": "Comando de uso único (minicad:reset-procedures-for-launch) para reiniciar únicamente procedimientos a 0 conservando todos los mantenedores intactos, y detalles de versión restringidos a Administradores."
                 }
             ]
         },

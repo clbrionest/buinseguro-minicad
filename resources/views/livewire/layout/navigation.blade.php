@@ -290,35 +290,13 @@ new class extends Component
                 </div>
             </div>
 
-            <!-- Right CAD Status Bar: Theme Switcher, Clock, Extension & User Dropdown -->
+            <!-- Right CAD Status Bar: Clock & User Dropdown -->
             <div class="hidden sm:flex sm:items-center gap-2 shrink-0">
-                <!-- Selector de Tema (Claro / Oscuro / Auto) -->
-                <x-cad.theme-switcher />
-
                 <!-- Live Digital Clock (Tabular Nums) -->
                 <div class="bg-[#1D1F59]/80 dark:bg-[#10131D] border border-white/15 px-2.5 py-1 rounded-lg flex items-center gap-1.5" title="Hora Oficial Central CAD">
                     <i class="fa-regular fa-clock text-brand-lime text-xs" aria-hidden="true"></i>
                     <span x-text="clock" class="font-mono cad-tabular text-xs font-black text-brand-white tracking-wider"></span>
                 </div>
-
-                <!-- Extension Badge -->
-                @if(auth()->user()->extension)
-                    <span class="bg-white/10 border border-white/15 text-brand-white text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 font-mono cad-tabular">
-                        <i class="fa-solid fa-headset text-brand-lime text-[11px]" aria-hidden="true"></i>
-                        <span>Anexo {{ auth()->user()->extension }}</span>
-                    </span>
-                @endif
-
-                <!-- Toggle Notificaciones de Llamadas (Sonora y Visual) -->
-                @hasanyrole('Administrador|Supervisor|Operador')
-                    <button type="button"
-                            wire:click="toggleCallNotifications"
-                            title="{{ $callNotificationsMuted ? 'Notificaciones de llamadas desactivadas (clic para activar)' : 'Notificaciones de llamadas activas (clic para desactivar)' }}"
-                            class="border text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 transition {{ $callNotificationsMuted ? 'bg-amber-500/20 border-amber-400/50 text-amber-200 hover:bg-amber-500/30' : 'bg-white/10 border-white/15 text-brand-white hover:bg-white/15' }}">
-                        <i class="fa-solid {{ $callNotificationsMuted ? 'fa-bell-slash text-amber-300' : 'fa-bell text-brand-lime' }} text-[11px]" aria-hidden="true"></i>
-                        <span class="hidden xl:inline">{{ $callNotificationsMuted ? 'Llamadas Silenciadas' : 'Alertas Llamadas' }}</span>
-                    </button>
-                @endhasanyrole
 
                 <!-- User Profile Dropdown -->
                 <x-dropdown align="right" width="w-80">
@@ -336,15 +314,47 @@ new class extends Component
                     </x-slot>
 
                     <x-slot name="content">
-                        <!-- Cabecera del Perfil con Versión SemVer -->
+                        <!-- Cabecera del Perfil con Versión SemVer y Anexo -->
                         <div class="px-4 py-2.5 border-b border-ui-border flex items-center justify-between gap-2 bg-ui-subtle/50">
                             <div class="min-w-0">
                                 <div class="text-xs font-extrabold text-ui-fg truncate">{{ auth()->user()->name }}</div>
                                 <div class="text-[10px] text-ui-muted truncate">{{ auth()->user()->email }}</div>
+                                @if(auth()->user()->extension)
+                                    <div class="mt-1 inline-flex items-center gap-1 bg-brand-cobalt/10 dark:bg-brand-lime/15 text-brand-cobalt dark:text-brand-lime border border-brand-cobalt/20 dark:border-brand-lime/30 text-[10px] font-bold px-2 py-0.5 rounded font-mono cad-tabular">
+                                        <i class="fa-solid fa-headset text-[9px]" aria-hidden="true"></i>
+                                        <span>Anexo {{ auth()->user()->extension }}</span>
+                                    </div>
+                                @endif
                             </div>
-                            <span class="bg-brand-cobalt text-brand-white dark:bg-brand-lime dark:text-brand-black font-mono font-black text-[10px] px-2 py-0.5 rounded shrink-0" title="Versión SemVer del Sistema">
-                                {{ $cadVersionTag ?? 'v1.3.0' }}
+                            <span class="bg-brand-cobalt text-brand-white dark:bg-brand-lime dark:text-brand-black font-mono font-black text-[10px] px-2 py-0.5 rounded shrink-0 self-start" title="Versión del Sistema">
+                                {{ $cadVersionTag ?? 'v1.5.0' }}
                             </span>
+                        </div>
+
+                        <!-- Preferencias de Consola: Apariencia y Alertas de Llamado -->
+                        <div class="px-3.5 py-2.5 border-b border-ui-border bg-ui-subtle/30 space-y-2.5 text-left" @click.stop>
+                            <div>
+                                <span class="text-[10px] font-extrabold uppercase tracking-wider text-ui-muted block mb-1.5">
+                                    <i class="fa-solid fa-palette mr-1" aria-hidden="true"></i> Apariencia / Colores
+                                </span>
+                                <x-cad.theme-switcher surface="menu" />
+                            </div>
+
+                            @hasanyrole('Administrador|Supervisor|Operador')
+                                <div class="pt-1 border-t border-ui-border/60">
+                                    <button type="button"
+                                            wire:click="toggleCallNotifications"
+                                            class="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition {{ $callNotificationsMuted ? 'bg-amber-500/15 border-amber-400/50 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25' : 'bg-ui-card border-ui-border text-ui-fg hover:bg-ui-subtle' }}">
+                                        <span class="flex items-center gap-1.5">
+                                            <i class="fa-solid {{ $callNotificationsMuted ? 'fa-bell-slash text-amber-600 dark:text-amber-400' : 'fa-bell text-emerald-600 dark:text-brand-lime' }} text-[11px]" aria-hidden="true"></i>
+                                            <span>Alertas de Llamadas</span>
+                                        </span>
+                                        <span class="text-[10px] font-black uppercase px-1.5 py-0.5 rounded {{ $callNotificationsMuted ? 'bg-amber-500/20 text-amber-800 dark:text-amber-200' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' }}">
+                                            {{ $callNotificationsMuted ? 'Silenciadas' : 'Activas' }}
+                                        </span>
+                                    </button>
+                                </div>
+                            @endhasanyrole
                         </div>
 
                         <x-dropdown-link :href="route('profile')" wire:navigate>
@@ -361,35 +371,37 @@ new class extends Component
                             <i class="fa-solid fa-book-open mr-1.5 text-brand-cobalt dark:text-brand-cobalt-mid" aria-hidden="true"></i> {{ __('Manual del Sistema') }}
                         </x-dropdown-link>
 
-                        <!-- Sección de Versión SemVer y Resumen de Cambios (Sincronizado desde main) -->
-                        @if(!empty($cadLatestRelease))
-                            <div class="px-3.5 py-2.5 border-t border-b border-ui-border bg-ui-subtle/60 text-left" @click.stop>
-                                <div class="flex items-center justify-between gap-1.5 mb-1.5">
-                                    <span class="text-[10px] font-black uppercase tracking-wider text-brand-cobalt dark:text-brand-lime flex items-center gap-1">
-                                        <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
-                                        <span>Versión {{ $cadVersionTag ?? 'v1.3.0' }}</span>
-                                    </span>
-                                    <span class="text-[9px] font-mono text-ui-muted">{{ $cadLatestRelease['date'] ?? '' }}</span>
+                        <!-- Detalles de Versión SemVer y Changelog (Exclusivo para Administradores) -->
+                        @role('Administrador')
+                            @if(!empty($cadLatestRelease))
+                                <div class="px-3.5 py-2.5 border-t border-b border-ui-border bg-ui-subtle/60 text-left" @click.stop>
+                                    <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                                        <span class="text-[10px] font-black uppercase tracking-wider text-brand-cobalt dark:text-brand-lime flex items-center gap-1">
+                                            <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
+                                            <span>Versión {{ $cadVersionTag ?? 'v1.5.0' }}</span>
+                                        </span>
+                                        <span class="text-[9px] font-mono text-ui-muted">{{ $cadLatestRelease['date'] ?? '' }}</span>
+                                    </div>
+                                    <div class="text-[11px] font-bold text-ui-fg mb-1.5 leading-snug">
+                                        {{ $cadLatestRelease['title'] ?? 'Resumen de Cambios' }}
+                                    </div>
+                                    <ul class="space-y-1 text-[10px] text-ui-muted mb-2">
+                                        @foreach(array_slice($cadLatestRelease['changes'] ?? [], 0, 3) as $chg)
+                                            <li class="flex items-start gap-1 leading-tight">
+                                                <span class="text-brand-lime font-black">•</span>
+                                                <span class="line-clamp-2">{{ $chg['description'] ?? '' }}</span>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                    <button type="button"
+                                            @click="showChangelogModal = true"
+                                            class="w-full text-center text-[10px] font-extrabold py-1 px-2 rounded bg-brand-cobalt/10 hover:bg-brand-cobalt/20 text-brand-cobalt dark:bg-brand-lime/15 dark:hover:bg-brand-lime/25 dark:text-brand-lime transition">
+                                        <i class="fa-solid fa-list-check mr-1" aria-hidden="true"></i>
+                                        Ver Changelog completo ({{ count($cadReleases ?? []) }} versiones)
+                                    </button>
                                 </div>
-                                <div class="text-[11px] font-bold text-ui-fg mb-1.5 leading-snug">
-                                    {{ $cadLatestRelease['title'] ?? 'Resumen de Cambios' }}
-                                </div>
-                                <ul class="space-y-1 text-[10px] text-ui-muted mb-2">
-                                    @foreach(array_slice($cadLatestRelease['changes'] ?? [], 0, 3) as $chg)
-                                        <li class="flex items-start gap-1 leading-tight">
-                                            <span class="text-brand-lime font-black">•</span>
-                                            <span class="line-clamp-2">{{ $chg['description'] ?? '' }}</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                                <button type="button"
-                                        @click="showChangelogModal = true"
-                                        class="w-full text-center text-[10px] font-extrabold py-1 px-2 rounded bg-brand-cobalt/10 hover:bg-brand-cobalt/20 text-brand-cobalt dark:bg-brand-lime/15 dark:hover:bg-brand-lime/25 dark:text-brand-lime transition">
-                                    <i class="fa-solid fa-list-check mr-1" aria-hidden="true"></i>
-                                    Ver Changelog completo ({{ count($cadReleases ?? []) }} versiones)
-                                </button>
-                            </div>
-                        @endif
+                            @endif
+                        @endrole
 
                         <!-- Authentication -->
                         <button wire:click="logout" class="w-full text-start">
@@ -403,7 +415,6 @@ new class extends Component
 
             <!-- Hamburger (Mobile) -->
             <div class="-me-2 flex items-center gap-2 md:hidden">
-                <x-cad.theme-switcher :compact="true" />
                 <button @click="open = ! open"
                         aria-label="Abrir menú de navegación"
                         class="inline-flex items-center justify-center p-2 rounded-md text-brand-white/80 hover:text-brand-white hover:bg-white/10 focus:outline-none transition">
@@ -462,29 +473,51 @@ new class extends Component
             @endrole
         </div>
 
-        <div class="pt-3 pb-3 border-t border-white/15 px-4 space-y-2">
+        <div class="pt-3 pb-3 border-t border-white/15 px-4 space-y-2.5">
             <div class="flex justify-between items-center">
                 <div>
                     <div class="font-bold text-sm text-brand-white flex items-center gap-2">
                         <span>{{ auth()->user()->name }}</span>
-                        <span class="bg-brand-lime text-brand-black font-mono font-black text-[10px] px-1.5 py-0.5 rounded">{{ $cadVersionTag ?? 'v1.3.0' }}</span>
+                        <span class="bg-brand-lime text-brand-black font-mono font-black text-[10px] px-1.5 py-0.5 rounded">{{ $cadVersionTag ?? 'v1.5.0' }}</span>
                     </div>
-                    <div class="text-xs text-brand-cobalt-light">{{ auth()->user()->email }}</div>
+                    <div class="text-xs text-brand-cobalt-light">
+                        {{ auth()->user()->email }}
+                        @if(auth()->user()->extension)
+                            · <span class="font-mono text-brand-lime-light">Anexo {{ auth()->user()->extension }}</span>
+                        @endif
+                    </div>
                 </div>
                 <button wire:click="logout" class="bg-priority-critical text-brand-white text-xs font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5">
                     <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Salir
                 </button>
             </div>
-            <button type="button"
-                    @click="showChangelogModal = true; open = false"
-                    class="w-full text-left text-[11px] text-brand-lime-light hover:underline flex items-center gap-1.5 pt-1">
-                <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
-                <span>Ver novedades de la versión {{ $cadVersionTag ?? 'v1.3.0' }} y Changelog</span>
-            </button>
+
+            <!-- Preferencias móviles: Colores y Alertas de Llamadas -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <x-cad.theme-switcher :compact="true" />
+                @hasanyrole('Administrador|Supervisor|Operador')
+                    <button type="button"
+                            wire:click="toggleCallNotifications"
+                            class="border text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 transition {{ $callNotificationsMuted ? 'bg-amber-500/20 border-amber-400/50 text-amber-200' : 'bg-white/10 border-white/15 text-brand-white' }}">
+                        <i class="fa-solid {{ $callNotificationsMuted ? 'fa-bell-slash text-amber-300' : 'fa-bell text-brand-lime' }} text-[11px]" aria-hidden="true"></i>
+                        <span>{{ $callNotificationsMuted ? 'Llamadas Silenciadas' : 'Alertas Activas' }}</span>
+                    </button>
+                @endhasanyrole
+            </div>
+
+            @role('Administrador')
+                <button type="button"
+                        @click="showChangelogModal = true; open = false"
+                        class="w-full text-left text-[11px] text-brand-lime-light hover:underline flex items-center gap-1.5 pt-1">
+                    <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
+                    <span>Ver novedades de la versión {{ $cadVersionTag ?? 'v1.5.0' }} y Changelog</span>
+                </button>
+            @endrole
         </div>
     </div>
 
-    <!-- Modal de Historial de Versiones SemVer y Changelog (PRs) -->
+    <!-- Modal de Historial de Versiones SemVer y Changelog (Exclusivo para Administradores) -->
+    @role('Administrador')
     <div x-show="showChangelogModal"
          x-transition.opacity
          style="display: none;"
@@ -568,4 +601,5 @@ new class extends Component
             </div>
         </div>
     </div>
+    @endrole
 </nav>
