@@ -327,7 +327,7 @@ new class extends Component
                                 @endif
                             </div>
                             <span class="bg-brand-cobalt text-brand-white dark:bg-brand-lime dark:text-brand-black font-mono font-black text-[10px] px-2 py-0.5 rounded shrink-0 self-start" title="Versión del Sistema">
-                                {{ $cadVersionTag ?? 'v1.5.0' }}
+                                {{ $cadVersionTag ?? 'v1.7.0' }}
                             </span>
                         </div>
 
@@ -378,7 +378,7 @@ new class extends Component
                                     <div class="flex items-center justify-between gap-1.5 mb-1.5">
                                         <span class="text-[10px] font-black uppercase tracking-wider text-brand-cobalt dark:text-brand-lime flex items-center gap-1">
                                             <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
-                                            <span>Versión {{ $cadVersionTag ?? 'v1.5.0' }}</span>
+                                            <span>Versión {{ $cadVersionTag ?? 'v1.7.0' }}</span>
                                         </span>
                                         <span class="text-[9px] font-mono text-ui-muted">{{ $cadLatestRelease['date'] ?? '' }}</span>
                                     </div>
@@ -478,7 +478,7 @@ new class extends Component
                 <div>
                     <div class="font-bold text-sm text-brand-white flex items-center gap-2">
                         <span>{{ auth()->user()->name }}</span>
-                        <span class="bg-brand-lime text-brand-black font-mono font-black text-[10px] px-1.5 py-0.5 rounded">{{ $cadVersionTag ?? 'v1.5.0' }}</span>
+                        <span class="bg-brand-lime text-brand-black font-mono font-black text-[10px] px-1.5 py-0.5 rounded">{{ $cadVersionTag ?? 'v1.7.0' }}</span>
                     </div>
                     <div class="text-xs text-brand-cobalt-light">
                         {{ auth()->user()->email }}
@@ -510,7 +510,7 @@ new class extends Component
                         @click="showChangelogModal = true; open = false"
                         class="w-full text-left text-[11px] text-brand-lime-light hover:underline flex items-center gap-1.5 pt-1">
                     <i class="fa-solid fa-code-branch" aria-hidden="true"></i>
-                    <span>Ver novedades de la versión {{ $cadVersionTag ?? 'v1.5.0' }} y Changelog</span>
+                    <span>Ver novedades de la versión {{ $cadVersionTag ?? 'v1.7.0' }} y Changelog</span>
                 </button>
             @endrole
         </div>

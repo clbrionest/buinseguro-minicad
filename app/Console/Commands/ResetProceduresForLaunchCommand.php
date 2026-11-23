@@ -25,7 +25,7 @@ class ResetProceduresForLaunchCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Deja en 0 únicamente los procedimientos (y sus bitácoras/evidencias) por una única vez para el lanzamiento a producción, conservando todos los mantenedores intactos.';
+    protected $description = 'Deja en 0 únicamente los procedimientos (con sus bitácoras/evidencias) y el historial de llamados por una única vez para el lanzamiento a producción, conservando todos los mantenedores intactos.';
 
     /**
      * Ruta del archivo de bloqueo de uso único.
@@ -55,19 +55,18 @@ class ResetProceduresForLaunchCommand extends Command
         // 2. Contabilizar los registros que serán afectados
         $evidenceTable = (new Evidence)->getTable();
         $hasEvidenceTable = Schema::hasTable($evidenceTable);
+        $hasCallsTable = Schema::hasTable('calls');
 
         $proceduresCount = DB::table('procedures')->count();
         $logsCount = DB::table('procedure_logs')->count();
         $evidencesCount = $hasEvidenceTable ? DB::table($evidenceTable)->count() : 0;
-        $linkedCallsCount = Schema::hasTable('calls')
-            ? DB::table('calls')->whereNotNull('procedure_id')->count()
-            : 0;
+        $callsCount = $hasCallsTable ? DB::table('calls')->count() : 0;
 
         $this->info('Resumen del reinicio único de lanzamiento a producción:');
         $this->line(" - Procedimientos a eliminar: {$proceduresCount}");
         $this->line(" - Bitácoras de procedimientos (procedure_logs) a eliminar: {$logsCount}");
         $this->line(" - Registros de evidencias ({$evidenceTable}) a eliminar: {$evidencesCount}");
-        $this->line(" - Llamadas a desvincular (calls.procedure_id -> NULL, conservando historial): {$linkedCallsCount}");
+        $this->line(" - Historial de llamados (calls) a eliminar: {$callsCount}");
         $this->line(' - Mantenedores conservados intactos: usuarios, roles, sectores, móviles, hitos, orígenes, tipos, catálogos, turnos y patrullajes.');
 
         if ($dryRun) {
@@ -78,17 +77,17 @@ class ResetProceduresForLaunchCommand extends Command
 
         // 3. Requerir confirmación explícita
         if (! $this->option('confirm-reset')) {
-            if (! $this->confirm('¿Confirmas ejecutar este reinicio ÚNICO para dejar los procedimientos en 0? Esta acción no se podrá repetir.')) {
+            if (! $this->confirm('¿Confirmas ejecutar este reinicio ÚNICO para dejar los procedimientos y el historial de llamados en 0? Esta acción no se podrá repetir.')) {
                 $this->warn('Operación cancelada por el usuario.');
 
                 return self::FAILURE;
             }
         }
 
-        // 4. Ejecutar limpieza transaccional de SOLO procedimientos y sus tablas hijas directas
-        DB::transaction(function () use ($evidenceTable, $hasEvidenceTable) {
-            if (Schema::hasTable('calls') && Schema::hasColumn('calls', 'procedure_id')) {
-                DB::table('calls')->whereNotNull('procedure_id')->update(['procedure_id' => null]);
+        // 4. Ejecutar limpieza transaccional de procedimientos, sus tablas hijas directas y el historial de llamados
+        DB::transaction(function () use ($evidenceTable, $hasEvidenceTable, $hasCallsTable) {
+            if ($hasCallsTable) {
+                DB::table('calls')->delete();
             }
 
             if (Schema::hasColumn('procedures', 'parent_id')) {
@@ -104,7 +103,10 @@ class ResetProceduresForLaunchCommand extends Command
             DB::table('procedures')->delete();
         });
 
-        // 5. Reiniciar secuencias autoincrementales para comenzar en Folio #1
+        // 5. Reiniciar secuencias autoincrementales para comenzar en Folio #1 y Llamado #1
+        if ($hasCallsTable) {
+            $this->resetAutoIncrement('calls');
+        }
         $this->resetAutoIncrement('procedure_logs');
         if ($hasEvidenceTable) {
             $this->resetAutoIncrement($evidenceTable);
@@ -115,13 +117,13 @@ class ResetProceduresForLaunchCommand extends Command
         AuditLog::record(
             'system.procedures_launch_reset',
             'Sistema',
-            "Reinicio único de lanzamiento ejecutado: {$proceduresCount} procedimientos, {$logsCount} bitácoras y {$evidencesCount} evidencias eliminados; {$linkedCallsCount} llamadas desvinculadas. Mantenedores conservados intactos.",
+            "Reinicio único de lanzamiento ejecutado: {$proceduresCount} procedimientos, {$logsCount} bitácoras, {$evidencesCount} evidencias y {$callsCount} llamados eliminados. Mantenedores conservados intactos.",
             null,
             [
                 'procedures_deleted' => $proceduresCount,
                 'logs_deleted' => $logsCount,
                 'evidences_deleted' => $evidencesCount,
-                'calls_unlinked' => $linkedCallsCount,
+                'calls_deleted' => $callsCount,
             ]
         );
 
@@ -131,10 +133,10 @@ class ResetProceduresForLaunchCommand extends Command
             'procedures_deleted' => $proceduresCount,
             'logs_deleted' => $logsCount,
             'evidences_deleted' => $evidencesCount,
-            'calls_unlinked' => $linkedCallsCount,
+            'calls_deleted' => $callsCount,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)."\n");
 
-        $this->info('Reinicio completado exitosamente. El sistema quedó en 0 procedimientos (próximo Folio #1) y el comando ha sido bloqueado para uso único.');
+        $this->info('Reinicio completado exitosamente. El sistema quedó en 0 procedimientos y 0 llamados (próximo Folio #1) y el comando ha sido bloqueado para uso único.');
 
         return self::SUCCESS;
     }

@@ -3,17 +3,6 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
-## [v1.8.0] - 2026-11-23 — `fix/ui-fixes-historial`, `fix/ui-modal-procedimiento`, `feat/patrullaje-puntos`, `fix/detalles-ux`
-**Release de Lanzamiento a Producción — Consola Terreno PWA, Rutas GPS y UX Operativa**
-
-### ✨ Nuevas Funcionalidades (Features)
-- **[terreno-pwa]** Consola Móvil Operativa para Inspectores como PWA instalable con tracking GPS continuo, vista de terreno por defecto, cambio de estado de móvil asignado y adición de puntos adicionales en patrullajes preventivos.
-- **[mapa-operativo]** Seguimiento de rutas GPS de móviles en tiempo real, vectores de despacho y selector de capas de visualización (Procedimientos, Móviles, Ruta GPS).
-- **[procedimientos]** Mini mapa interactivo de georreferenciación con exclusión mutua Hito vs Dirección Exacta, control de autoría de antecedentes/bitácora, restricción de audio/visibilidad para inspectores y traspaso de procedimientos.
-- **[notificaciones-ux]** Alertas sonoras compatibles con iPhone/iOS de notificación única, desactivación de alertas de llamadas, auto-cierre a 10 segundos, tarjeta de llamadas sin atender y menú de perfil consolidado.
-
-### 🔧 Mantenimiento y Arquitectura (Chores)
-- **[lanzamiento]** Comando de uso único (`minicad:reset-procedures-for-launch`) para reiniciar únicamente procedimientos a 0 conservando todos los mantenedores intactos, y detalles de versión restringidos a Administradores.
 ## [v1.7.0] - 2026-11-18 — `PR #22`, `PR #21`, `PR #20`, `PR #19`
 **Actualización Automática desde rama principal**
 
