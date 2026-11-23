@@ -1,9 +1,48 @@
 {
-    "version": "1.4.0",
-    "released_at": "2026-11-17",
+    "version": "1.5.0",
+    "released_at": "2026-11-23",
     "branch": "main",
-    "last_commit": "67a6bcc",
+    "last_commit": "0f26f99",
     "releases": [
+        {
+            "version": "1.5.0",
+            "date": "2026-11-23",
+            "type": "minor",
+            "title": "Release de Lanzamiento a Producción — Consola Terreno PWA, Rutas GPS y UX Operativa",
+            "pr_refs": [
+                "fix/ui-fixes-historial",
+                "fix/ui-modal-procedimiento",
+                "feat/patrullaje-puntos",
+                "fix/detalles-ux"
+            ],
+            "changes": [
+                {
+                    "type": "feat",
+                    "scope": "terreno-pwa",
+                    "description": "Consola Móvil Operativa para Inspectores como PWA instalable con tracking GPS continuo, vista de terreno por defecto, cambio de estado de móvil asignado y adición de puntos adicionales en patrullajes preventivos."
+                },
+                {
+                    "type": "feat",
+                    "scope": "mapa-operativo",
+                    "description": "Seguimiento de rutas GPS de móviles en tiempo real, vectores de despacho y selector de capas de visualización (Procedimientos, Móviles, Ruta GPS)."
+                },
+                {
+                    "type": "feat",
+                    "scope": "procedimientos",
+                    "description": "Mini mapa interactivo de georreferenciación con exclusión mutua Hito vs Dirección Exacta, control de autoría de antecedentes/bitácora, restricción de audio/visibilidad para inspectores y traspaso de procedimientos."
+                },
+                {
+                    "type": "feat",
+                    "scope": "notificaciones-ux",
+                    "description": "Alertas sonoras compatibles con iPhone/iOS de notificación única, desactivación de alertas de llamadas, auto-cierre a 10 segundos, tarjeta de llamadas sin atender y menú de perfil consolidado."
+                },
+                {
+                    "type": "chore",
+                    "scope": "lanzamiento",
+                    "description": "Comando de uso único (minicad:reset-procedures-for-launch) para reiniciar únicamente procedimientos a 0 conservando todos los mantenedores intactos, y detalles de versión restringidos a Administradores."
+                }
+            ]
+        },
         {
             "version": "1.4.0",
             "date": "2026-11-17",
