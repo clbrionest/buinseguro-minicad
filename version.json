@@ -1,9 +1,30 @@
 {
-    "version": "1.7.1",
-    "released_at": "2026-11-23",
+    "version": "1.7.2",
+    "released_at": "2026-11-24",
     "branch": "main",
-    "last_commit": "eaaba39",
+    "last_commit": "0ca0a4c",
     "releases": [
+        {
+            "version": "1.7.2",
+            "date": "2026-11-24",
+            "type": "patch",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #25"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #25 (fix/detalles-ux): fix/bitacora procedimientos"
+                },
+                {
+                    "type": "fix",
+                    "scope": "sistema",
+                    "description": "Fix/bitacora procedimientos"
+                }
+            ]
+        },
         {
             "version": "1.7.1",
             "date": "2026-11-23",

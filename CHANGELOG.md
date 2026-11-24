@@ -3,6 +3,13 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.7.2] - 2026-11-24 — `PR #25`
+**Actualización Automática desde rama principal**
+
+### 🐛 Correcciones (Bug Fixes)
+- **[detalles-ux]** PR #25 (fix/detalles-ux): fix/bitacora procedimientos
+- **[sistema]** Fix/bitacora procedimientos
+
 ## [v1.7.1] - 2026-11-23 — `PR #24`, `PR #23`
 **Actualización Automática desde rama principal**
 
