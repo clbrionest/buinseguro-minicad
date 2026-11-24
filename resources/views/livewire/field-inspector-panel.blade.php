@@ -600,16 +600,53 @@
                         </div>
                     </div>
 
-                    {{-- FORMULARIO RÁPIDO DESPLEGABLE PARA FOTO / NOVEDAD EN TERRENO --}}
+                    {{-- FORMULARIO RÁPIDO DESPLEGABLE PARA ACTUACIÓN / DERIVACIÓN / CIERRE EN TERRENO --}}
                     @if($active_procedure_for_note === $proc->id)
                         <form wire:submit.prevent="saveQuickNote({{ $proc->id }})" class="mt-3 pt-3 border-t border-ui-border bg-ui-subtle p-3 rounded-lg space-y-2.5">
-                            <label class="block text-xs font-bold text-ui-fg uppercase">Enviar Reporte / Evidencia desde Terreno</label>
-                            <textarea wire:model="quick_note" rows="2" class="w-full rounded-lg border-ui-border bg-ui-card text-ui-fg text-sm" placeholder="Escriba la novedad observada en el lugar..."></textarea>
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <label class="text-xs font-bold text-ui-fg uppercase">Registrar Actuación desde Terreno</label>
+                                <select wire:model.live="quick_action_type" class="rounded-lg border-ui-border bg-ui-card text-ui-fg text-xs font-bold py-1.5 px-2.5">
+                                    <option value="Novedad Terreno">Novedad / Evidencia (Mantiene estado)</option>
+                                    <option value="Derivación Externa">Derivación a Externo (Bomberos/SAPU/Carab.)</option>
+                                    <option value="Cierre de Procedimiento">Cerrar Procedimiento</option>
+                                </select>
+                            </div>
+
+                            @if($quick_action_type === 'Derivación Externa')
+                                <div class="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 space-y-2">
+                                    <select wire:model="quick_external_agency" class="w-full rounded-lg border-ui-border bg-ui-card text-ui-fg text-xs font-semibold">
+                                        <option value="">-- Seleccione organismo externo * --</option>
+                                        @foreach($externalAgencies ?? [] as $agency)
+                                            <option value="{{ $agency }}">{{ $agency }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('quick_external_agency') <span class="text-priority-critical text-xs block">{{ $message }}</span> @enderror
+
+                                    <label class="inline-flex items-center gap-2 text-xs font-bold text-ui-fg cursor-pointer">
+                                        <input type="checkbox" wire:model="quick_close_after_derivation" class="rounded border-ui-border text-emerald-600 focus:ring-emerald-500">
+                                        <span>Cerrar procedimiento al derivar (libera móvil)</span>
+                                    </label>
+                                </div>
+                            @elseif($quick_action_type === 'Cierre de Procedimiento')
+                                <div class="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-1.5">
+                                    <select wire:model="quick_closure_resolution" class="w-full rounded-lg border-ui-border bg-ui-card text-ui-fg text-xs font-semibold">
+                                        <option value="">-- Seleccione resolución de cierre * --</option>
+                                        @foreach($closureResolutions ?? [] as $resOption)
+                                            <option value="{{ $resOption }}">{{ $resOption }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('quick_closure_resolution') <span class="text-priority-critical text-xs block">{{ $message }}</span> @enderror
+                                </div>
+                            @endif
+
+                            <textarea wire:model="quick_note" rows="2" class="w-full rounded-lg border-ui-border bg-ui-card text-ui-fg text-sm" placeholder="{{ $quick_action_type === 'Novedad Terreno' ? 'Escriba la novedad observada en el lugar...' : 'Observaciones adicionales (opcional)...' }}"></textarea>
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                                 <input type="file" wire:model="quick_photo" accept="image/*" capture="environment" class="text-xs text-ui-muted file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-brand-cobalt/10 file:text-brand-cobalt dark:file:bg-brand-cobalt-mid/20 dark:file:text-brand-cobalt-light">
                                 <div class="flex gap-2 w-full sm:w-auto justify-end">
                                     <x-cad.button type="button" variant="secondary" wire:click="openQuickNote({{ $proc->id }})">Cancelar</x-cad.button>
-                                    <x-cad.button type="submit" variant="primary">Enviar a Central</x-cad.button>
+                                    <x-cad.button type="submit" variant="primary">
+                                        {{ $quick_action_type === 'Cierre de Procedimiento' ? 'Cerrar Caso' : ($quick_action_type === 'Derivación Externa' ? 'Registrar Derivación' : 'Enviar a Central') }}
+                                    </x-cad.button>
                                 </div>
                             </div>
                             @error('quick_note') <span class="text-priority-critical text-xs block">{{ $message }}</span> @enderror
