@@ -32,6 +32,19 @@ class ShowProcedure extends Component
 
     public $photo;
 
+    // Campos contextuales según etapa/actuación (Derivación externa y Cierre)
+    public $external_agency = '';
+
+    public $custom_external_agency = '';
+
+    public $external_reference = '';
+
+    public $close_after_derivation = false;
+
+    public $closure_resolution = '';
+
+    public $manual_status_override = false;
+
     // Nueva variable para el despacho tardío
     public $new_device_id = '';
 
@@ -218,8 +231,8 @@ class ShowProcedure extends Component
             $cleanMeta['_meta_authors'] = $authors;
         }
 
-        // Conservar metadatos internos de asignación si existen
-        foreach (['_assigned_inspector_id', '_assigned_inspector_name'] as $internalKey) {
+        // Conservar metadatos internos de asignación, derivación y cierre si existen
+        foreach (['_assigned_inspector_id', '_assigned_inspector_name', '_derived_to', '_external_ref', '_closure_resolution'] as $internalKey) {
             if (isset($existingMeta[$internalKey])) {
                 $cleanMeta[$internalKey] = $existingMeta[$internalKey];
             }
@@ -405,14 +418,135 @@ class ShowProcedure extends Component
         session()->flash('message', 'Llegada confirmada por Central. Procedimiento actualizado a "En el Lugar".');
     }
 
+    public function isDerivationAction(?string $action = null): bool
+    {
+        $val = mb_strtolower(trim((string) ($action ?? $this->action_type)));
+
+        return str_contains($val, 'coordinaci') || str_contains($val, 'derivaci');
+    }
+
+    public function isClosureAction(?string $action = null): bool
+    {
+        $val = mb_strtolower(trim((string) ($action ?? $this->action_type)));
+
+        return str_contains($val, 'cierre');
+    }
+
+    public function isArrivalAction(?string $action = null): bool
+    {
+        $val = mb_strtolower(trim((string) ($action ?? $this->action_type)));
+
+        return str_contains($val, 'llegada');
+    }
+
+    public function canManualOverrideStatus(): bool
+    {
+        $user = Auth::user();
+
+        return (bool) ($user && $user->hasAnyRole(['Administrador', 'Supervisor']));
+    }
+
+    public function resolveNextStatus(): string
+    {
+        if ($this->manual_status_override && $this->canManualOverrideStatus() && trim((string) $this->status) !== '') {
+            return (string) $this->status;
+        }
+
+        if ($this->isClosureAction()) {
+            return 'Cerrado';
+        }
+
+        if ($this->isDerivationAction()) {
+            return $this->close_after_derivation ? 'Cerrado' : 'Derivado';
+        }
+
+        if ($this->isArrivalAction()) {
+            return 'En el Lugar';
+        }
+
+        return (string) $this->procedure->status;
+    }
+
+    public function updatedActionType(): void
+    {
+        $this->resetValidation(['external_agency', 'custom_external_agency', 'external_reference', 'closure_resolution', 'description']);
+
+        if (! $this->isDerivationAction()) {
+            $this->reset(['external_agency', 'custom_external_agency', 'external_reference', 'close_after_derivation']);
+        }
+
+        if (! $this->isClosureAction()) {
+            $this->reset(['closure_resolution']);
+        }
+
+        if (! $this->manual_status_override) {
+            $this->status = $this->resolveNextStatus();
+        }
+    }
+
+    public function updatedCloseAfterDerivation(): void
+    {
+        if (! $this->manual_status_override) {
+            $this->status = $this->resolveNextStatus();
+        }
+    }
+
+    public function updatedManualStatusOverride(): void
+    {
+        if (! $this->manual_status_override || ! $this->canManualOverrideStatus()) {
+            $this->manual_status_override = false;
+            $this->status = $this->resolveNextStatus();
+        }
+    }
+
     public function saveLog()
     {
-        // 1. Validar que no mande una nota vacía
-        $this->validate([
-            'action_type' => 'required',
-            'description' => 'required_without:photo', // El texto es obligatorio solo si NO hay foto
-            'photo' => 'nullable|image|max:5120', // Máximo 5MB por foto
-        ]);
+        $user = Auth::user();
+        abort_unless($user && $user->canAccessProcedure($this->procedure), 403);
+
+        $isDerivation = $this->isDerivationAction();
+        $isClosure = $this->isClosureAction();
+
+        // 1. Validación contextual según el tipo de actuación elegida
+        $rules = [
+            'action_type' => 'required|string|max:255',
+            'photo' => 'nullable|image|max:5120',
+        ];
+        $messages = [];
+
+        if ($isDerivation) {
+            $rules['external_agency'] = 'required|string|max:255';
+            $messages['external_agency.required'] = 'Seleccione el organismo externo al que se deriva el procedimiento.';
+            if ($this->external_agency === 'OTRO') {
+                $rules['custom_external_agency'] = 'required|string|max:150';
+                $messages['custom_external_agency.required'] = 'Especifique el nombre del organismo externo.';
+            }
+            $rules['external_reference'] = 'nullable|string|max:150';
+            $rules['description'] = 'nullable|string|max:2000';
+        } elseif ($isClosure) {
+            $rules['closure_resolution'] = 'required|string|max:255';
+            $messages['closure_resolution.required'] = 'Seleccione la resolución final para cerrar el procedimiento.';
+            $rules['description'] = 'nullable|string|max:2000';
+        } else {
+            $rules['description'] = 'required_without:photo|nullable|string|max:2000';
+            $messages['description.required_without'] = 'Ingrese el detalle de la actuación o adjunte una evidencia fotográfica.';
+        }
+
+        $this->validate($rules, $messages);
+
+        $resolvedAgency = null;
+        $externalRef = trim((string) $this->external_reference);
+        $resolvedClosure = null;
+
+        if ($isDerivation) {
+            $resolvedAgency = $this->external_agency === 'OTRO'
+                ? trim((string) $this->custom_external_agency)
+                : trim((string) $this->external_agency);
+        }
+
+        if ($isClosure) {
+            $resolvedClosure = trim((string) $this->closure_resolution);
+        }
 
         if ($this->photo) {
             // Guarda en storage/app/public/evidences y devuelve la ruta
@@ -423,66 +557,116 @@ class ShowProcedure extends Component
                 'user_id' => Auth::id(),
                 'file_path' => $path,
             ]);
-
-            // Si mandó foto pero no escribió descripción, le ponemos una automática
-            if (empty($this->description)) {
-                $this->description = 'Adjunta evidencia fotográfica.';
-            }
         }
 
-        // 2. Guardar la nueva anotación en la bitácora
+        // 2. Construir descripción estructurada y legible para la bitácora
+        $userDescription = trim((string) $this->description);
+        if ($isDerivation) {
+            $header = "Derivado a: [{$resolvedAgency}]";
+            if ($externalRef !== '') {
+                $header .= " (Ref: {$externalRef})";
+            }
+            if ($this->close_after_derivation) {
+                $header .= ' — Cierre inmediato tras derivación';
+            }
+            $finalDescription = $userDescription !== ''
+                ? "{$header}. {$userDescription}"
+                : "{$header}.";
+        } elseif ($isClosure) {
+            $header = "Resolución de Cierre: [{$resolvedClosure}]";
+            $finalDescription = $userDescription !== ''
+                ? "{$header}. {$userDescription}"
+                : "{$header}.";
+        } else {
+            $finalDescription = $userDescription !== ''
+                ? $userDescription
+                : 'Adjunta evidencia fotográfica.';
+        }
+
+        // 3. Guardar la nueva anotación en la bitácora
         ProcedureLog::create([
             'procedure_id' => $this->procedure->id,
             'user_id' => Auth::id(),
             'action_type' => $this->action_type,
-            'description' => $this->description,
+            'description' => $finalDescription,
         ]);
 
-        // 3. Sincronizar estado y marcas de tiempo SLA según la acción o el cambio de estado
+        // 4. Sincronizar estado automático, metadatos estructurados y marcas de tiempo SLA
         $oldStatus = $this->procedure->status;
+        $nextStatus = $this->resolveNextStatus();
+        $this->status = $nextStatus;
+
         $updates = [];
-        if ($this->action_type === 'Llegada al lugar' && $this->status !== 'Cerrado') {
-            $this->status = 'En el Lugar';
-        } elseif ($this->action_type === 'Cierre de Procedimiento') {
-            $this->status = 'Cerrado';
+        if ($nextStatus !== $oldStatus) {
+            $updates['status'] = $nextStatus;
         }
 
-        if ($this->status !== $this->procedure->status) {
-            $updates['status'] = $this->status;
+        if ($isDerivation || $isClosure) {
+            $meta = is_array($this->procedure->metadata) ? $this->procedure->metadata : [];
+            if ($isDerivation && $resolvedAgency) {
+                $meta['_derived_to'] = $resolvedAgency;
+                if ($externalRef !== '') {
+                    $meta['_external_ref'] = $externalRef;
+                }
+                if ($this->close_after_derivation) {
+                    $meta['_closure_resolution'] = "Derivado a {$resolvedAgency}";
+                }
+            }
+            if ($isClosure && $resolvedClosure) {
+                $meta['_closure_resolution'] = $resolvedClosure;
+            }
+            $updates['metadata'] = $meta;
         }
 
-        if ($this->status === 'En Camino' && ! $this->procedure->dispatched_at) {
+        if ($nextStatus === 'En Camino' && ! $this->procedure->dispatched_at) {
             $updates['dispatched_at'] = now();
         }
 
-        if ($this->status === 'En el Lugar' && ! $this->procedure->arrived_at) {
+        if ($nextStatus === 'En el Lugar' && ! $this->procedure->arrived_at) {
             $updates['arrived_at'] = now();
             if (! $this->procedure->dispatched_at) {
                 $updates['dispatched_at'] = $this->procedure->created_at;
             }
         }
 
-        if ($this->status === 'Cerrado' && ! $this->procedure->closed_at) {
+        if ($nextStatus === 'Cerrado' && ! $this->procedure->closed_at) {
             $updates['closed_at'] = now();
         }
 
         if (! empty($updates)) {
             $this->procedure->update($updates);
-            if ($oldStatus !== $this->status) {
+            if ($oldStatus !== $nextStatus) {
                 AuditLog::record(
                     'procedure.status_changed',
                     'Procedimientos',
-                    "Cambio de estado en Procedimiento #{$this->procedure->id}: de \"{$oldStatus}\" a \"{$this->status}\".",
+                    "Cambio de estado en Procedimiento #{$this->procedure->id}: de \"{$oldStatus}\" a \"{$nextStatus}\".",
                     $this->procedure,
-                    ['old_status' => $oldStatus, 'new_status' => $this->status, 'action_type' => $this->action_type]
+                    array_filter([
+                        'old_status' => $oldStatus,
+                        'new_status' => $nextStatus,
+                        'action_type' => $this->action_type,
+                        'derived_to' => $resolvedAgency,
+                        'external_reference' => $externalRef !== '' ? $externalRef : null,
+                        'closure_resolution' => $resolvedClosure,
+                    ], fn ($v) => ! is_null($v))
                 );
             }
         }
 
-        // 4. Limpiar el formulario y recargar los datos
-        $this->reset('description', 'photo');
+        // 5. Limpiar el formulario y recargar los datos
+        $this->reset([
+            'description',
+            'photo',
+            'external_agency',
+            'custom_external_agency',
+            'external_reference',
+            'close_after_derivation',
+            'closure_resolution',
+            'manual_status_override',
+        ]);
         $this->action_type = 'Novedad';
-        $this->procedure->refresh(); // Recarga el historial de la BD
+        $this->procedure->refresh();
+        $this->status = $this->procedure->status;
     }
 
     public function linkToParent()
@@ -682,24 +866,73 @@ class ShowProcedure extends Component
 
     public function applyResolution(string $resolution): void
     {
-        if (trim($resolution) === '') {
+        $clean = trim($resolution);
+        if ($clean === '') {
             return;
         }
 
-        if (str_contains(strtoupper($resolution), 'DERIVAD')) {
-            $this->status = 'Derivado';
+        if (str_contains(strtoupper($clean), 'DERIVAD') || str_contains(strtoupper($clean), 'DERIVACION')) {
             $this->action_type = 'Coordinación Externa (Carabineros / SAMU / Bomberos)';
+            $this->external_agency = $clean;
+            $this->closure_resolution = '';
         } else {
-            $this->status = 'Cerrado';
             $this->action_type = 'Cierre de Procedimiento';
+            $this->closure_resolution = $clean;
+            $this->external_agency = '';
         }
 
-        $prefix = "Resolución Oficial: [{$resolution}]. ";
-        if (! str_starts_with($this->description, 'Resolución Oficial:')) {
-            $this->description = trim($prefix.$this->description);
-        } else {
-            $this->description = preg_replace('/^Resolución Oficial:\s*\[[^\]]+\]\.\s*/u', $prefix, $this->description);
+        $this->status = $this->resolveNextStatus();
+    }
+
+    /**
+     * Separa el catálogo de resoluciones en Organismos Externos (derivaciones) y Resoluciones de Cierre.
+     *
+     * @return array{external_agencies: array<int, string>, closure_resolutions: array<int, string>}
+     */
+    public static function splitResolutionsCatalog(): array
+    {
+        $allResolutions = SystemCatalogItem::namesFor('procedure_resolutions', []);
+
+        $externalAgencies = [];
+        $closureResolutions = [];
+
+        foreach ($allResolutions as $item) {
+            $upper = mb_strtoupper(trim($item));
+            if (str_contains($upper, 'DERIVAD') || str_contains($upper, 'DERIVACION')) {
+                $externalAgencies[] = $item;
+            } else {
+                $closureResolutions[] = $item;
+            }
         }
+
+        if (empty($externalAgencies)) {
+            $externalAgencies = [
+                'DERIVADO A CARABINEROS',
+                'DERIVADO A BOMBEROS',
+                'DERIVADO A AMBULANCIAS / SAMU / SAPU',
+                'DERIVADO A PDI',
+                'DERIVADO A EMPRESA EXTERNA (CGE / AGUAS ANDINAS)',
+                'DERIVADO A DEPARTAMENTO MUNICIPAL',
+            ];
+        }
+
+        if (empty($closureResolutions)) {
+            $closureResolutions = [
+                'SOLUCIONADO EN EL LUGAR',
+                'SIN NOVEDAD',
+                'FALSA ALARMA',
+                'LABOR EDUCATIVA',
+                'INFRACCION MUNICIPAL',
+                'INFRACCION TRANSITO',
+                'DENUNCIA',
+                'DETENIDO BUIN SEGURO',
+            ];
+        }
+
+        return [
+            'external_agencies' => $externalAgencies,
+            'closure_resolutions' => $closureResolutions,
+        ];
     }
 
     public function render()
@@ -723,7 +956,18 @@ class ShowProcedure extends Component
             'Cierre de Procedimiento',
         ]);
 
-        $resolutions = SystemCatalogItem::namesFor('procedure_resolutions', []);
+        // Coherencia de etapas: si el caso ya llegó al lugar o fue derivado, ocultar "Llegada al lugar"
+        $alreadyArrived = in_array($this->procedure->status, ['En el Lugar', 'Derivado'], true)
+            || ! is_null($this->procedure->arrived_at);
+
+        if ($alreadyArrived) {
+            $logActions = array_values(array_filter(
+                $logActions,
+                fn (string $act) => ! $this->isArrivalAction($act)
+            ));
+        }
+
+        $catalogs = self::splitResolutionsCatalog();
 
         $inspectors = User::role('Inspector')
             ->orderBy('name')
@@ -747,7 +991,10 @@ class ShowProcedure extends Component
             'procedureTypes' => ProcedureType::orderBy('name')->get(),
             'previousCallerCases' => $previousCallerCases,
             'logActions' => $logActions,
-            'resolutions' => $resolutions,
+            'externalAgencies' => $catalogs['external_agencies'],
+            'closureResolutions' => $catalogs['closure_resolutions'],
+            'resolvedNextStatus' => $this->resolveNextStatus(),
+            'canManualOverrideStatus' => $this->canManualOverrideStatus(),
             'inspectors' => $inspectors,
         ])->layout('layouts.app');
     }

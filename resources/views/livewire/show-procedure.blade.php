@@ -12,6 +12,18 @@
                     <span class="text-xs font-extrabold font-mono cad-tabular bg-brand-lime text-brand-black px-2.5 py-0.5 rounded">FOLIO #{{ $procedure->id }}</span>
                     <span class="text-xs font-mono cad-tabular font-bold text-brand-cobalt-light">{{ $procedure->created_at->format('d/m/Y H:i:s') }}</span>
                     <x-cad.procedure-status :status="$procedure->status" class="bg-white/15! text-white! border-white/25!" />
+                    @if($procedure->derived_to)
+                        <span class="inline-flex items-center gap-1 text-[11px] font-bold bg-indigo-500/25 text-indigo-100 border border-indigo-300/40 px-2 py-0.5 rounded">
+                            <i class="fa-solid fa-share-from-square text-[10px]" aria-hidden="true"></i>
+                            <span>{{ $procedure->derived_to }}</span>
+                        </span>
+                    @endif
+                    @if($procedure->closure_resolution)
+                        <span class="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-500/25 text-emerald-100 border border-emerald-300/40 px-2 py-0.5 rounded">
+                            <i class="fa-solid fa-flag-checkered text-[10px]" aria-hidden="true"></i>
+                            <span>{{ $procedure->closure_resolution }}</span>
+                        </span>
+                    @endif
                 </div>
                 <h1 class="text-xl font-extrabold mt-1 text-brand-white">
                     {{ $procedure->procedureType->name ?? 'Procedimiento' }} — <span class="text-brand-lime-light font-semibold">{{ $procedure->sector->name ?? '' }}</span>
@@ -154,6 +166,27 @@
                             {{ $procedure->device ? '🚓 ' . $procedure->device->name : 'Sin Asignar' }}
                         </span>
                     </div>
+                    @if($procedure->derived_to)
+                        <div class="pt-2 border-t border-slate-100">
+                            <span class="font-bold text-slate-500 block text-xs uppercase">Derivado a Organismo Externo:</span>
+                            <span class="inline-flex items-center gap-1.5 mt-1 text-xs font-black text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-md">
+                                <i class="fa-solid fa-share-from-square" aria-hidden="true"></i>
+                                <span>{{ $procedure->derived_to }}</span>
+                            </span>
+                            @if($procedure->external_reference)
+                                <p class="text-xs text-slate-600 mt-1"><strong>Ref. Externa:</strong> {{ $procedure->external_reference }}</p>
+                            @endif
+                        </div>
+                    @endif
+                    @if($procedure->closure_resolution)
+                        <div class="pt-2 border-t border-slate-100">
+                            <span class="font-bold text-slate-500 block text-xs uppercase">Resolución de Cierre:</span>
+                            <span class="inline-flex items-center gap-1.5 mt-1 text-xs font-black text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">
+                                <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i>
+                                <span>{{ $procedure->closure_resolution }}</span>
+                            </span>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -570,42 +603,175 @@
 
             {{-- FORMULARIO PARA AGREGAR NOVEDAD A LA BITÁCORA --}}
             @if($procedure->status !== 'Cerrado')
+            @php
+                $isDerivation = $this->isDerivationAction();
+                $isClosure = $this->isClosureAction();
+                $isArrival = $this->isArrivalAction();
+                $willChangeStatus = $resolvedNextStatus !== $procedure->status;
+                $submitLabel = match (true) {
+                    $isClosure => 'Cerrar Procedimiento',
+                    $isDerivation && $close_after_derivation => 'Registrar Derivación y Cerrar',
+                    $isDerivation => 'Registrar Derivación',
+                    $isArrival => 'Registrar Llegada al Lugar',
+                    default => 'Guardar en Bitácora',
+                };
+                $submitBtnClass = match (true) {
+                    $isClosure || ($isDerivation && $close_after_derivation) => 'bg-emerald-600 hover:bg-emerald-700',
+                    $isDerivation => 'bg-indigo-600 hover:bg-indigo-700',
+                    default => 'bg-blue-600 hover:bg-blue-700',
+                };
+                $descriptionPlaceholder = match (true) {
+                    $isDerivation => 'Detalles adicionales de la coordinación o entrega al organismo externo (opcional)...',
+                    $isClosure => 'Observaciones finales del cierre del procedimiento (opcional)...',
+                    default => 'Escriba los detalles reportados por la unidad o central...',
+                };
+            @endphp
             <div class="bg-white shadow-sm rounded-xl p-6 border border-slate-200">
                 <h3 class="text-base font-black text-slate-800 mb-4">✍️ Registrar Actuación / Novedad en Bitácora</h3>
-                <form wire:submit.prevent="saveLog">
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <form wire:submit.prevent="saveLog" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                        {{-- 1. Tipo de Actuación (guía todo el formulario) --}}
                         <div>
-                            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Tipo de Acción</label>
-                            <select wire:model="action_type" class="w-full rounded-lg border-slate-300 shadow-sm text-sm font-semibold">
+                            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Tipo de Actuación / Etapa</label>
+                            <select wire:model.live="action_type" class="w-full rounded-lg border-slate-300 shadow-sm text-sm font-semibold">
                                 @foreach($logActions as $actOption)
                                     <option value="{{ $actOption }}">{{ $actOption }}</option>
                                 @endforeach
                             </select>
+                            @error('action_type') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
+
+                        {{-- 2. Estado Operativo Resultante (Automático según la actuación) --}}
                         <div>
-                            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Resolución / Derivación Rápida</label>
-                            <x-searchable-select
-                                wireAction="applyResolution"
-                                :options="$resolutions ?? []"
-                                placeholder="-- Buscar resolución / derivación --"
-                                searchPlaceholder="Digite resolución (ej: Carabineros, Enel, infracción)..."
-                            />
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Estado Operativo del Caso</label>
-                            <select wire:model="status" class="w-full rounded-lg border-slate-300 shadow-sm text-sm font-black text-blue-700">
-                                <option value="Pendiente">Pendiente</option>
-                                <option value="En Camino">En Camino</option>
-                                <option value="En el Lugar">En el Lugar</option>
-                                <option value="Derivado">Derivado</option>
-                                <option value="Cerrado">Cerrado</option>
-                            </select>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-bold uppercase text-slate-600">Estado Operativo Resultante</label>
+                                @if($canManualOverrideStatus)
+                                    <label class="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-700 cursor-pointer">
+                                        <input type="checkbox" wire:model.live="manual_status_override" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                        <span>Ajuste manual</span>
+                                    </label>
+                                @endif
+                            </div>
+
+                            @if($manual_status_override && $canManualOverrideStatus)
+                                <select wire:model.live="status" class="w-full rounded-lg border-indigo-400 bg-indigo-50/40 shadow-sm text-sm font-black text-indigo-800">
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="En Camino">En Camino</option>
+                                    <option value="En el Lugar">En el Lugar</option>
+                                    <option value="Derivado">Derivado</option>
+                                    <option value="Cerrado">Cerrado</option>
+                                </select>
+                            @else
+                                <div class="min-h-[40px] px-3 py-2 rounded-lg border flex flex-wrap items-center justify-between gap-2 text-xs {{ $willChangeStatus ? 'bg-blue-50/70 border-blue-200 text-blue-900' : 'bg-slate-50 border-slate-200 text-slate-700' }}">
+                                    @if($willChangeStatus)
+                                        <div class="flex items-center gap-2 font-extrabold">
+                                            <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600">{{ $procedure->status }}</span>
+                                            <i class="fa-solid fa-arrow-right text-blue-600 text-[10px]" aria-hidden="true"></i>
+                                            <span class="px-2 py-0.5 rounded {{ $resolvedNextStatus === 'Cerrado' ? 'bg-emerald-600 text-white' : ($resolvedNextStatus === 'Derivado' ? 'bg-indigo-600 text-white' : 'bg-blue-600 text-white') }}">
+                                                {{ $resolvedNextStatus }}
+                                            </span>
+                                        </div>
+                                        <span class="text-[11px] font-semibold text-blue-700">
+                                            {{ $resolvedNextStatus === 'Cerrado' ? 'Finaliza el caso y libera móvil' : 'Cambio automático por actuación' }}
+                                        </span>
+                                    @else
+                                        <div class="flex items-center gap-2 font-bold">
+                                            <span class="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">{{ $procedure->status }}</span>
+                                            <span class="text-slate-500 font-medium">Se mantiene en la etapa actual</span>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-xs font-bold uppercase text-slate-600">Descripción Detallada de la Actuación</label>
-                        <textarea wire:model="description" rows="3" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm text-sm" placeholder="Escriba los detalles reportados por la unidad o central..."></textarea>
+
+                    {{-- BLOQUE CONTEXTUAL: DERIVACIÓN / COORDINACIÓN EXTERNA --}}
+                    @if($isDerivation)
+                        <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-200 space-y-3">
+                            <div class="flex items-center gap-2 text-xs font-black uppercase text-indigo-800">
+                                <i class="fa-solid fa-share-from-square" aria-hidden="true"></i>
+                                <span>Detalle de Derivación a Organismo Externo</span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-indigo-900 mb-1">Organismo / Externo al que se deriva *</label>
+                                    <select wire:model.live="external_agency" class="w-full rounded-lg border-indigo-300 bg-white shadow-sm text-sm font-semibold text-slate-800">
+                                        <option value="">-- Seleccione organismo externo --</option>
+                                        @foreach($externalAgencies as $agency)
+                                            <option value="{{ $agency }}">{{ $agency }}</option>
+                                        @endforeach
+                                        <option value="OTRO">OTRO ORGANISMO EXTERNO (Especificar)</option>
+                                    </select>
+                                    @error('external_agency') <span class="text-red-600 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-indigo-900 mb-1">N° Parte / Unidad / Contacto Externo (Opcional)</label>
+                                    <input type="text"
+                                           wire:model="external_reference"
+                                           placeholder="Ej: 15° Comisaría, 1ra Cía Bomberos, Cuadrilla CGE..."
+                                           class="w-full rounded-lg border-indigo-300 bg-white shadow-sm text-sm">
+                                    @error('external_reference') <span class="text-red-600 text-xs mt-1 block">{{ $message }}</span> @enderror
+                                </div>
+                            </div>
+
+                            @if($external_agency === 'OTRO')
+                                <div>
+                                    <label class="block text-xs font-bold text-indigo-900 mb-1">Especifique el Organismo Externo *</label>
+                                    <input type="text"
+                                           wire:model="custom_external_agency"
+                                           placeholder="Ej: SAPU Buin, SAG, Senapred..."
+                                           class="w-full rounded-lg border-indigo-300 bg-white shadow-sm text-sm">
+                                    @error('custom_external_agency') <span class="text-red-600 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
+                                </div>
+                            @endif
+
+                            <label class="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+                                <input type="checkbox"
+                                       wire:model.live="close_after_derivation"
+                                       class="mt-0.5 rounded border-indigo-400 text-emerald-600 focus:ring-emerald-500">
+                                <span class="text-xs text-indigo-950">
+                                    <strong class="font-extrabold">Cerrar el procedimiento al registrar esta derivación</strong>
+                                    <span class="block text-[11px] text-indigo-700">
+                                        Si lo dejas desmarcado, el caso quedará en estado <strong>Derivado</strong> (abierto en seguimiento). Si lo marcas, pasa a <strong>Cerrado</strong> y libera el móvil asignado.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                    @endif
+
+                    {{-- BLOQUE CONTEXTUAL: CIERRE DE PROCEDIMIENTO --}}
+                    @if($isClosure)
+                        <div class="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-2.5">
+                            <div class="flex items-center gap-2 text-xs font-black uppercase text-emerald-800">
+                                <i class="fa-solid fa-flag-checkered" aria-hidden="true"></i>
+                                <span>Resolución Oficial de Cierre</span>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-emerald-900 mb-1">Resultado / Resolución Final *</label>
+                                <select wire:model.live="closure_resolution" class="w-full rounded-lg border-emerald-300 bg-white shadow-sm text-sm font-semibold text-slate-800">
+                                    <option value="">-- Seleccione resolución de cierre --</option>
+                                    @foreach($closureResolutions as $resOption)
+                                        <option value="{{ $resOption }}">{{ $resOption }}</option>
+                                    @endforeach
+                                </select>
+                                @error('closure_resolution') <span class="text-red-600 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
+                            </div>
+                            <p class="text-[11px] font-semibold text-emerald-800">
+                                Al guardar, el procedimiento quedará <strong>CERRADO</strong>, se registrará la hora de cierre y se liberará la unidad asignada.
+                            </p>
+                        </div>
+                    @endif
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-600">
+                            Descripción Detallada de la Actuación
+                            @if($isDerivation || $isClosure)
+                                <span class="text-[10px] font-semibold text-slate-400 normal-case">(Opcional si el detalle ya queda cubierto arriba)</span>
+                            @endif
+                        </label>
+                        <textarea wire:model="description" rows="3" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm text-sm" placeholder="{{ $descriptionPlaceholder }}"></textarea>
                         @error('description') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                     </div>
 
@@ -619,8 +785,8 @@
                             @error('photo') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
                         </div>
 
-                        <button type="submit" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-6 rounded-lg shadow text-sm transition">
-                            Guardar en Bitácora
+                        <button type="submit" class="w-full sm:w-auto {{ $submitBtnClass }} text-white font-black py-2.5 px-6 rounded-lg shadow text-sm transition">
+                            {{ $submitLabel }}
                         </button>
                     </div>
                 </form>

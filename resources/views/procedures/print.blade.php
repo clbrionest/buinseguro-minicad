@@ -95,6 +95,21 @@
                         <div><span class="font-bold text-gray-600">Coordenadas Incidente:</span> {{ $procedure->latitude }}, {{ $procedure->longitude }}</div>
                     @endif
                     <div><span class="font-bold text-gray-600">Operador Receptor:</span> {{ $procedure->user->name ?? 'Sistema' }}</div>
+                    @if($procedure->derived_to)
+                        <div class="pt-1.5 border-t border-gray-200">
+                            <span class="font-bold text-gray-600">Derivado a Organismo Externo:</span>
+                            <span class="font-black text-indigo-800">{{ $procedure->derived_to }}</span>
+                            @if($procedure->external_reference)
+                                <span class="text-xs text-gray-600">(Ref: {{ $procedure->external_reference }})</span>
+                            @endif
+                        </div>
+                    @endif
+                    @if($procedure->closure_resolution)
+                        <div>
+                            <span class="font-bold text-gray-600">Resolución de Cierre:</span>
+                            <span class="font-black text-emerald-800">{{ $procedure->closure_resolution }}</span>
+                        </div>
+                    @endif
                 </div>
             </div>
 

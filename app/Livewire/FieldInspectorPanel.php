@@ -26,6 +26,14 @@ class FieldInspectorPanel extends Component
 
     public $active_procedure_for_note = null;
 
+    public $quick_action_type = 'Novedad Terreno';
+
+    public $quick_external_agency = '';
+
+    public $quick_close_after_derivation = false;
+
+    public $quick_closure_resolution = '';
+
     public $quick_note = '';
 
     public $quick_photo = null;
@@ -304,21 +312,58 @@ class FieldInspectorPanel extends Component
     public function openQuickNote($procedureId)
     {
         $this->active_procedure_for_note = ($this->active_procedure_for_note === $procedureId) ? null : $procedureId;
-        $this->reset(['quick_note', 'quick_photo']);
+        $this->reset([
+            'quick_note',
+            'quick_photo',
+            'quick_external_agency',
+            'quick_close_after_derivation',
+            'quick_closure_resolution',
+        ]);
+        $this->quick_action_type = 'Novedad Terreno';
+    }
+
+    public function updatedQuickActionType(): void
+    {
+        $this->resetValidation(['quick_external_agency', 'quick_closure_resolution', 'quick_note']);
+        if ($this->quick_action_type !== 'Derivación Externa') {
+            $this->reset(['quick_external_agency', 'quick_close_after_derivation']);
+        }
+        if ($this->quick_action_type !== 'Cierre de Procedimiento') {
+            $this->reset(['quick_closure_resolution']);
+        }
     }
 
     public function saveQuickNote($procedureId)
     {
-        $this->validate([
-            'quick_note' => 'required_without:quick_photo',
-            'quick_photo' => 'nullable|image|max:5120',
-        ]);
-
         $procedure = Procedure::findOrFail($procedureId);
         $user = Auth::user();
         if ($user && ! $user->canAccessProcedure($procedure)) {
             abort(403, 'No tienes permisos para operar un procedimiento no asignado a tu móvil.');
         }
+
+        $isDerivation = $this->quick_action_type === 'Derivación Externa';
+        $isClosure = $this->quick_action_type === 'Cierre de Procedimiento';
+
+        $rules = [
+            'quick_action_type' => 'required|in:Novedad Terreno,Derivación Externa,Cierre de Procedimiento',
+            'quick_photo' => 'nullable|image|max:5120',
+        ];
+        $messages = [];
+
+        if ($isDerivation) {
+            $rules['quick_external_agency'] = 'required|string|max:255';
+            $messages['quick_external_agency.required'] = 'Seleccione el organismo externo.';
+            $rules['quick_note'] = 'nullable|string|max:2000';
+        } elseif ($isClosure) {
+            $rules['quick_closure_resolution'] = 'required|string|max:255';
+            $messages['quick_closure_resolution.required'] = 'Seleccione la resolución de cierre.';
+            $rules['quick_note'] = 'nullable|string|max:2000';
+        } else {
+            $rules['quick_note'] = 'required_without:quick_photo|nullable|string|max:2000';
+            $messages['quick_note.required_without'] = 'Escriba una novedad o adjunte una fotografía.';
+        }
+
+        $this->validate($rules, $messages);
 
         if ($this->quick_photo) {
             $path = $this->quick_photo->store('evidences', 'public');
@@ -327,20 +372,86 @@ class FieldInspectorPanel extends Component
                 'user_id' => Auth::id(),
                 'file_path' => $path,
             ]);
-            if (empty($this->quick_note)) {
-                $this->quick_note = 'Evidencia fotográfica enviada desde Modo Terreno.';
+        }
+
+        $noteText = trim((string) $this->quick_note);
+        $logActionType = $this->quick_action_type;
+        $oldStatus = $procedure->status;
+        $nextStatus = $oldStatus;
+        $meta = is_array($procedure->metadata) ? $procedure->metadata : [];
+        $updates = [];
+
+        if ($isDerivation) {
+            $agency = trim((string) $this->quick_external_agency);
+            $logActionType = 'Coordinación Externa (Terreno)';
+            $nextStatus = $this->quick_close_after_derivation ? 'Cerrado' : 'Derivado';
+            $header = "Derivado a: [{$agency}]".($this->quick_close_after_derivation ? ' — Cierre inmediato tras derivación' : '');
+            $finalDescription = $noteText !== '' ? "{$header}. {$noteText}" : "{$header}.";
+
+            $meta['_derived_to'] = $agency;
+            if ($this->quick_close_after_derivation) {
+                $meta['_closure_resolution'] = "Derivado a {$agency}";
             }
+            $updates['metadata'] = $meta;
+        } elseif ($isClosure) {
+            $res = trim((string) $this->quick_closure_resolution);
+            $nextStatus = 'Cerrado';
+            $header = "Resolución de Cierre: [{$res}]";
+            $finalDescription = $noteText !== '' ? "{$header}. {$noteText}" : "{$header}.";
+
+            $meta['_closure_resolution'] = $res;
+            $updates['metadata'] = $meta;
+        } else {
+            $finalDescription = $noteText !== '' ? $noteText : 'Evidencia fotográfica enviada desde Modo Terreno.';
         }
 
         ProcedureLog::create([
             'procedure_id' => $procedure->id,
             'user_id' => Auth::id(),
-            'action_type' => 'Novedad Terreno',
-            'description' => $this->quick_note,
+            'action_type' => $logActionType,
+            'description' => $finalDescription,
         ]);
 
-        $this->reset(['quick_note', 'quick_photo', 'active_procedure_for_note']);
-        session()->flash('field_message', "Novedad registrada exitosamente en el Caso #{$procedure->id}.");
+        if ($nextStatus !== $oldStatus) {
+            $updates['status'] = $nextStatus;
+            if ($nextStatus === 'Cerrado' && ! $procedure->closed_at) {
+                $updates['closed_at'] = now();
+            }
+        }
+
+        if (! empty($updates)) {
+            $procedure->update($updates);
+            if ($nextStatus !== $oldStatus) {
+                AuditLog::record(
+                    'procedure.status_changed',
+                    'Procedimientos',
+                    "Cambio de estado desde Terreno en Procedimiento #{$procedure->id}: de \"{$oldStatus}\" a \"{$nextStatus}\".",
+                    $procedure,
+                    [
+                        'old_status' => $oldStatus,
+                        'new_status' => $nextStatus,
+                        'action_type' => $logActionType,
+                    ]
+                );
+            }
+        }
+
+        $this->reset([
+            'quick_note',
+            'quick_photo',
+            'quick_external_agency',
+            'quick_close_after_derivation',
+            'quick_closure_resolution',
+            'active_procedure_for_note',
+        ]);
+        $this->quick_action_type = 'Novedad Terreno';
+
+        $feedback = match ($nextStatus) {
+            'Cerrado' => "Procedimiento #{$procedure->id} cerrado exitosamente desde Terreno.",
+            'Derivado' => "Derivación registrada para el Caso #{$procedure->id}.",
+            default => "Novedad registrada exitosamente en el Caso #{$procedure->id}.",
+        };
+        session()->flash('field_message', $feedback);
     }
 
     public function resolveEventReportFromField($reportId)
@@ -397,6 +508,8 @@ class FieldInspectorPanel extends Component
                 ->first();
         }
 
+        $catalogs = ShowProcedure::splitResolutionsCatalog();
+
         return view('livewire.field-inspector-panel', [
             'devices' => $devices,
             'currentDevice' => $currentDevice,
@@ -404,6 +517,8 @@ class FieldInspectorPanel extends Component
             'assignedEventReports' => $assignedEventReports,
             'activePreventivePatrol' => $activePreventivePatrol,
             'landmarks' => Landmark::orderBy('name')->get(),
+            'externalAgencies' => $catalogs['external_agencies'],
+            'closureResolutions' => $catalogs['closure_resolutions'],
         ])->layout('layouts.app');
     }
 }

@@ -141,6 +141,39 @@ class Procedure extends Model
         return ['color' => 'gray', 'label' => "{$totalMins}m total", 'badge' => 'bg-gray-100 text-gray-700 border-gray-300', 'dot' => 'bg-gray-400'];
     }
 
+    /**
+     * Organismo externo al que se derivó el procedimiento (si aplica).
+     */
+    public function getDerivedToAttribute(): ?string
+    {
+        $meta = $this->metadata;
+        $val = is_array($meta) ? ($meta['_derived_to'] ?? null) : null;
+
+        return is_string($val) && trim($val) !== '' ? trim($val) : null;
+    }
+
+    /**
+     * Referencia externa de la derivación (N° parte, unidad, contacto).
+     */
+    public function getExternalReferenceAttribute(): ?string
+    {
+        $meta = $this->metadata;
+        $val = is_array($meta) ? ($meta['_external_ref'] ?? null) : null;
+
+        return is_string($val) && trim($val) !== '' ? trim($val) : null;
+    }
+
+    /**
+     * Resolución oficial de cierre del procedimiento (si aplica).
+     */
+    public function getClosureResolutionAttribute(): ?string
+    {
+        $meta = $this->metadata;
+        $val = is_array($meta) ? ($meta['_closure_resolution'] ?? null) : null;
+
+        return is_string($val) && trim($val) !== '' ? trim($val) : null;
+    }
+
     // Relaciones de pertenencia (Pertenece a...)
     public function user()
     {
