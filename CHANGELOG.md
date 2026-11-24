@@ -3,6 +3,16 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.7.3] - 2026-11-24 — `PR #26`
+**Actualización Automática desde rama principal**
+
+### 🐛 Correcciones (Bug Fixes)
+- **[detalles-ux]** PR #26 (fix/detalles-ux): Fix/detalles ux
+
+### 🔧 Mantenimiento y Arquitectura (Chores)
+- **[sistema]** Mejoras modulo de usuarios, email de onboarding
+- **[sistema]** Mejoras en casos anidado, vista de llamados con tipificacion
+
 ## [v1.7.2] - 2026-11-24 — `PR #25`
 **Actualización Automática desde rama principal**
 

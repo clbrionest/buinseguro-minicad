@@ -1,9 +1,35 @@
 {
-    "version": "1.7.2",
+    "version": "1.7.3",
     "released_at": "2026-11-24",
     "branch": "main",
-    "last_commit": "0ca0a4c",
+    "last_commit": "ee3691a",
     "releases": [
+        {
+            "version": "1.7.3",
+            "date": "2026-11-24",
+            "type": "patch",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #26"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #26 (fix/detalles-ux): Fix/detalles ux"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Mejoras modulo de usuarios, email de onboarding"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Mejoras en casos anidado, vista de llamados con tipificacion"
+                }
+            ]
+        },
         {
             "version": "1.7.2",
             "date": "2026-11-24",
