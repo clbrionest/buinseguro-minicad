@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\CallsReport;
 use App\Livewire\FieldInspectorPanel;
 use App\Livewire\ShowProcedure;
+use App\Models\Call;
 use App\Models\Device;
 use App\Models\Origin;
 use App\Models\PatrolAssignment;
@@ -211,5 +213,124 @@ class ProcedureLogStageWorkflowTest extends TestCase
         $this->assertEquals('DERIVADO A CARABINEROS', $procedure->derived_to);
         $this->assertEquals('Derivado a DERIVADO A CARABINEROS', $procedure->closure_resolution);
         $this->assertNotNull($procedure->closed_at);
+    }
+
+    public function test_calls_report_opens_classification_note_modal_and_allows_editing(): void
+    {
+        $operator = $this->createOperator();
+
+        $call = Call::create([
+            'asterisk_id' => 'ast-note-modal-1',
+            'caller_id' => '+56988887777',
+            'extension' => '101',
+            'status' => 'completed',
+            'classification' => 'Información General',
+            'notes' => 'Vecino consultó por horario de atención de farmacia de turno.',
+        ]);
+
+        Livewire::actingAs($operator)
+            ->test(CallsReport::class)
+            ->assertSee('Información General')
+            ->call('openNoteModal', $call->id)
+            ->assertSet('isNoteModalOpen', true)
+            ->assertSee('Vecino consultó por horario de atención de farmacia de turno.')
+            ->call('editClassificationFromNoteModal')
+            ->assertSet('isNoteModalOpen', false)
+            ->assertSet('isClassifyModalOpen', true)
+            ->assertSet('selectedCallId', $call->id);
+    }
+
+    public function test_linking_call_clears_previous_classification_blocks_child_cases_and_records_note(): void
+    {
+        $operator = $this->createOperator();
+
+        $parent = $this->createProcedure($operator, 'En Camino');
+        $parent->update(['caller_phone' => '+56912345678']);
+
+        $child = $this->createProcedure($operator, 'Cerrado');
+        $child->update(['parent_id' => $parent->id]);
+
+        $call = Call::create([
+            'asterisk_id' => 'ast-link-improved-1',
+            'caller_id' => '912345678', // Sin +56 para validar normalización de últimos 8 dígitos
+            'extension' => '101',
+            'status' => 'completed',
+            'classification' => 'Llamada Cortada',
+        ]);
+
+        // 1. No permite amarrar a un caso hijo (anexo)
+        Livewire::actingAs($operator)
+            ->test(CallsReport::class)
+            ->call('openLinkModal', $call->id)
+            ->call('linkCallToProcedure', $child->id)
+            ->assertHasErrors(['procedureSearch']);
+
+        $this->assertNull($call->fresh()->procedure_id);
+
+        // 2. Permite amarrar al caso principal, limpia clasificación previa y guarda nota en bitácora
+        Livewire::actingAs($operator)
+            ->test(CallsReport::class)
+            ->call('openLinkModal', $call->id)
+            ->set('linkNote', 'Vecino llama nuevamente consultando hora estimada de llegada.')
+            ->call('linkCallToProcedure', $parent->id)
+            ->assertHasNoErrors();
+
+        $call->refresh();
+        $this->assertSame($parent->id, $call->procedure_id);
+        $this->assertNull($call->classification);
+        $this->assertDatabaseHas('procedure_logs', [
+            'procedure_id' => $parent->id,
+            'action_type' => 'Llamada Vinculada',
+        ]);
+    }
+
+    public function test_grouping_cases_prevents_chains_logs_audit_and_allows_supervisor_unlink(): void
+    {
+        $supervisor = User::factory()->create();
+        $supervisor->assignRole('Supervisor');
+
+        $operator = $this->createOperator();
+
+        $parent = $this->createProcedure($supervisor, 'En el Lugar');
+        $child = $this->createProcedure($supervisor, 'En Camino');
+        $third = $this->createProcedure($supervisor, 'Pendiente');
+
+        // 1. Anexar $child a $parent mediante modal/acción
+        Livewire::actingAs($operator)
+            ->test(ShowProcedure::class, ['procedure' => $child])
+            ->call('openParentLinkModal')
+            ->assertSet('isParentLinkModalOpen', true)
+            ->call('linkToParent', $parent->id)
+            ->assertHasNoErrors();
+
+        $child->refresh();
+        $this->assertSame($parent->id, $child->parent_id);
+        $this->assertSame('Cerrado', $child->status);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'procedure.linked_to_parent']);
+
+        // 2. $parent ya tiene hijos -> no puede subordinarse a $third (evita árboles de 2 niveles)
+        Livewire::actingAs($operator)
+            ->test(ShowProcedure::class, ['procedure' => $parent])
+            ->call('linkToParent', $third->id)
+            ->assertHasErrors(['parent_id_to_link']);
+
+        $this->assertNull($parent->fresh()->parent_id);
+
+        // 3. Operador NO puede desvincular un anexo; Supervisor SÍ puede desvincular y reabrir
+        Livewire::actingAs($operator)
+            ->test(ShowProcedure::class, ['procedure' => $parent])
+            ->call('unlinkChildProcedure', $child->id)
+            ->assertForbidden();
+
+        Livewire::actingAs($supervisor)
+            ->test(ShowProcedure::class, ['procedure' => $parent])
+            ->call('unlinkChildProcedure', $child->id)
+            ->assertHasNoErrors();
+
+        $child->refresh();
+        $this->assertNull($child->parent_id);
+        $this->assertSame('En Camino', $child->status);
+        $this->assertNull($child->closed_at);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'procedure.unlinked_from_parent']);
     }
 }

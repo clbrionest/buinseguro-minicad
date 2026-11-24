@@ -50,6 +50,13 @@ class ShowProcedure extends Component
 
     public $parent_id_to_link = '';
 
+    // Modal buscador de Caso Principal para agrupar duplicados
+    public $isParentLinkModalOpen = false;
+
+    public $parentLinkSearch = '';
+
+    public $showClosedParentsInLink = false;
+
     // Categorización Operativa y Metadatos Dinámicos al operar el caso
     public $operational_procedure_type_id = '';
 
@@ -84,17 +91,22 @@ class ShowProcedure extends Component
             abort(403, 'No tienes permisos para visualizar ni operar este procedimiento.');
         }
 
-        // Cargamos las relaciones necesarias, incluyendo la patrulla y tipificación inicial
+        // Cargamos las relaciones necesarias, incluyendo la patrulla, llamadas y tipificación inicial
         $this->procedure = $procedure->load([
             'sector',
             'procedureType',
             'initialProcedureType',
             'device',
             'origin',
+            'call',
+            'calls',
             'logs.user',
             'evidences.user',
             'patrolAssignment.crew',
             'children.logs',
+            'children.call',
+            'children.calls',
+            'children.evidences',
             'parent',
         ]);
         $this->status = $procedure->status;
@@ -669,47 +681,140 @@ class ShowProcedure extends Component
         $this->status = $this->procedure->status;
     }
 
-    public function linkToParent()
+    public function openParentLinkModal(): void
     {
+        $this->resetValidation(['parent_id_to_link']);
+        $this->parentLinkSearch = '';
+        $this->showClosedParentsInLink = false;
+        $this->isParentLinkModalOpen = true;
+    }
+
+    public function closeParentLinkModal(): void
+    {
+        $this->isParentLinkModalOpen = false;
+        $this->reset(['parentLinkSearch', 'showClosedParentsInLink']);
+    }
+
+    public function linkToParent(?int $targetParentId = null): void
+    {
+        if (! is_null($targetParentId)) {
+            $this->parent_id_to_link = $targetParentId;
+        }
+
         $this->validate([
             'parent_id_to_link' => 'required|exists:procedures,id|not_in:'.$this->procedure->id,
+        ], [
+            'parent_id_to_link.required' => 'Seleccione el caso principal al que desea anexar este procedimiento.',
+            'parent_id_to_link.not_in' => 'No puede vincular un procedimiento consigo mismo.',
         ]);
 
-        $parentCase = Procedure::find($this->parent_id_to_link);
+        // Evitar encadenamiento de árboles (un caso que ya tiene hijos no puede pasar a ser hijo de otro)
+        if ($this->procedure->children()->exists()) {
+            $this->addError('parent_id_to_link', 'Este procedimiento ya es un Caso Principal con anexos vinculados y no puede subordinarse a otro caso.');
+
+            return;
+        }
+
+        $parentCase = Procedure::findOrFail($this->parent_id_to_link);
         if ($parentCase->parent_id) {
             $this->addError('parent_id_to_link', 'El caso destino ya es un anexo. Por favor, vincula directamente al Caso Principal #'.$parentCase->parent_id);
 
             return;
         }
 
+        $hadDeviceName = $this->procedure->device?->name;
+
         // 2. Actualizamos ESTE caso (el hijo) a CERRADO
         $this->procedure->update([
-            'parent_id' => $this->parent_id_to_link,
+            'parent_id' => $parentCase->id,
             'status' => 'Cerrado',
-            'closed_at' => now(),
+            'closed_at' => $this->procedure->closed_at ?? now(),
         ]);
 
         // 3. Bitácora en el Hijo
+        $deviceNote = $hadDeviceName ? " (Móvil {$hadDeviceName} liberado de este duplicado)." : '.';
         ProcedureLog::create([
             'procedure_id' => $this->procedure->id,
             'user_id' => Auth::id(),
             'action_type' => 'Cierre por Vinculación',
-            'description' => 'Caso cerrado operativamente. Se anexó al Procedimiento Principal #'.$this->parent_id_to_link,
+            'description' => "Caso cerrado operativamente. Se anexó al Procedimiento Principal #{$parentCase->id}{$deviceNote}",
         ]);
 
         // 4. Bitácora en el Padre
         ProcedureLog::create([
-            'procedure_id' => $this->parent_id_to_link,
+            'procedure_id' => $parentCase->id,
             'user_id' => Auth::id(),
             'action_type' => 'Anexo Recibido',
-            'description' => 'Se vinculó el Procedimiento Anexo #'.$this->procedure->id.' a este caso principal.',
+            'description' => "Se vinculó el Procedimiento Anexo #{$this->procedure->id} ({$this->procedure->exact_address}) a este caso principal.",
         ]);
+
+        // 5. Registro oficial en AuditLog
+        AuditLog::record(
+            'procedure.linked_to_parent',
+            'Procedimientos',
+            "Procedimiento #{$this->procedure->id} anexado y cerrado bajo el Caso Principal #{$parentCase->id}.",
+            $this->procedure,
+            [
+                'child_procedure_id' => $this->procedure->id,
+                'parent_procedure_id' => $parentCase->id,
+                'released_device' => $hadDeviceName,
+            ]
+        );
 
         $this->status = 'Cerrado';
         $this->reset('parent_id_to_link');
+        $this->closeParentLinkModal();
         $this->procedure->refresh();
+        $this->procedure->load(['parent', 'children.calls', 'children.evidences']);
 
-        session()->flash('message', 'Procedimiento vinculado y cerrado exitosamente.');
+        session()->flash('message', "Procedimiento vinculado al Caso #{$parentCase->id} y cerrado exitosamente.");
+    }
+
+    public function unlinkChildProcedure(int $childId): void
+    {
+        $user = Auth::user();
+        if (! $user || ! $user->hasAnyRole(['Administrador', 'Supervisor'])) {
+            abort(403, 'Solo Administrador o Supervisor pueden desvincular un caso anexo.');
+        }
+
+        $child = Procedure::where('parent_id', $this->procedure->id)->findOrFail($childId);
+        $reopenedStatus = $child->device_id ? 'En Camino' : 'Pendiente';
+
+        $child->update([
+            'parent_id' => null,
+            'status' => $reopenedStatus,
+            'closed_at' => null,
+        ]);
+
+        ProcedureLog::create([
+            'procedure_id' => $child->id,
+            'user_id' => $user->id,
+            'action_type' => 'Desvinculación de Anexo',
+            'description' => "Se desvinculó del Caso Principal #{$this->procedure->id}. Procedimiento reabierto en estado \"{$reopenedStatus}\".",
+        ]);
+
+        ProcedureLog::create([
+            'procedure_id' => $this->procedure->id,
+            'user_id' => $user->id,
+            'action_type' => 'Anexo Desvinculado',
+            'description' => "Se desvinculó el Procedimiento Anexo #{$child->id} de este caso principal.",
+        ]);
+
+        AuditLog::record(
+            'procedure.unlinked_from_parent',
+            'Procedimientos',
+            "Procedimiento Anexo #{$child->id} desvinculado del Caso Principal #{$this->procedure->id} por {$user->name}.",
+            $child,
+            [
+                'child_procedure_id' => $child->id,
+                'parent_procedure_id' => $this->procedure->id,
+                'reopened_status' => $reopenedStatus,
+            ]
+        );
+
+        $this->procedure->refresh();
+        $this->procedure->load(['children.logs', 'children.call', 'children.calls', 'children.evidences', 'call', 'calls']);
+        session()->flash('message', "Caso Anexo #{$child->id} desvinculado y reabierto en estado {$reopenedStatus}.");
     }
 
     public function startEditingLog(int $logId): void
@@ -986,6 +1091,41 @@ class ShowProcedure extends Component
                 ];
             });
 
+        // Candidatos para el Modal Buscador de Caso Principal (excluye el actual y casos hijos)
+        $candidateParents = collect();
+        if ($this->isParentLinkModalOpen) {
+            $term = trim((string) $this->parentLinkSearch);
+            $includeClosed = (bool) $this->showClosedParentsInLink || ($term !== '' && is_numeric($term));
+            $currentSectorId = (int) $this->procedure->sector_id;
+
+            $parentQuery = Procedure::with(['procedureType', 'sector'])
+                ->where('id', '!=', $this->procedure->id)
+                ->whereNull('parent_id')
+                ->when(! $includeClosed, fn ($q) => $q->where('status', '!=', 'Cerrado'))
+                ->orderByRaw('CASE WHEN sector_id = ? THEN 0 ELSE 1 END ASC', [$currentSectorId])
+                ->orderByRaw("CASE WHEN status = 'Cerrado' THEN 1 ELSE 0 END ASC")
+                ->orderBy('created_at', 'desc');
+
+            if ($term !== '') {
+                $parentQuery->where(function ($q) use ($term) {
+                    if (is_numeric($term)) {
+                        $q->where('id', (int) $term)
+                            ->orWhere('caller_phone', 'like', "%{$term}%");
+                    } else {
+                        $q->where('exact_address', 'like', "%{$term}%")
+                            ->orWhere('caller_name', 'like', "%{$term}%")
+                            ->orWhere('caller_phone', 'like', "%{$term}%")
+                            ->orWhereHas('procedureType', fn ($sub) => $sub->where('name', 'like', "%{$term}%"))
+                            ->orWhereHas('sector', fn ($sub) => $sub->where('name', 'like', "%{$term}%"));
+                    }
+                });
+            }
+
+            $candidateParents = $parentQuery->take(20)->get();
+        }
+
+        $linkedCalls = $this->procedure->all_linked_calls;
+
         return view('livewire.show-procedure', [
             'devices' => Device::withCount('activeProcedures')->orderBy('name')->get(),
             'procedureTypes' => ProcedureType::orderBy('name')->get(),
@@ -995,6 +1135,8 @@ class ShowProcedure extends Component
             'closureResolutions' => $catalogs['closure_resolutions'],
             'resolvedNextStatus' => $this->resolveNextStatus(),
             'canManualOverrideStatus' => $this->canManualOverrideStatus(),
+            'candidateParents' => $candidateParents,
+            'linkedCalls' => $linkedCalls,
             'inspectors' => $inspectors,
         ])->layout('layouts.app');
     }

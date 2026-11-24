@@ -414,19 +414,24 @@
                 @endhasanyrole
             </div>
 
-            @if(!$procedure->parent_id && !in_array($procedure->status, ['Cerrado', 'Cancelado']))
+            @if(!$procedure->parent_id && !in_array($procedure->status, ['Cerrado', 'Cancelado']) && $procedure->children->count() === 0)
             <div class="bg-slate-50 shadow-sm rounded-xl p-5 border border-slate-200">
-                <h3 class="text-sm font-black uppercase text-slate-700 mb-1">🔗 Vincular Caso Duplicado</h3>
-                <p class="text-xs text-slate-500 mb-3">Si es un reporte repetido del mismo incidente, anéxalo al caso principal:</p>
-                
-                <div class="flex gap-2">
-                    <span class="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-slate-300 bg-slate-200 text-slate-600 font-bold text-sm">#</span>
-                    <input type="number" wire:model="parent_id_to_link" placeholder="ID Principal" class="flex-1 rounded-none rounded-r-lg border-slate-300 shadow-sm text-sm focus:border-blue-500 focus:ring-blue-500">
-                    <button wire:click="linkToParent" onclick="confirm('¿Estás seguro de vincular y cerrar este caso?') || event.stopImmediatePropagation()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-lg text-xs shadow-sm transition">
-                        Vincular
-                    </button>
-                </div>
-                @error('parent_id_to_link') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                <h3 class="text-sm font-black uppercase text-slate-700 mb-1">🔗 Agrupar / Vincular Caso Duplicado</h3>
+                <p class="text-xs text-slate-500 mb-3">Si este folio corresponde al mismo incidente de otro caso principal, búscalo y anéxalo con vista previa:</p>
+
+                @if($procedure->device)
+                    <div class="mb-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-800">
+                        ⚠️ Este caso tiene el móvil <strong>{{ $procedure->device->name }}</strong> asignado. Al anexarlo se cerrará y liberará la unidad.
+                    </div>
+                @endif
+
+                <button type="button"
+                        wire:click="openParentLinkModal"
+                        class="w-full bg-slate-800 hover:bg-slate-900 dark:bg-brand-cobalt-mid dark:hover:bg-brand-cobalt-light dark:text-brand-black text-white font-bold py-2.5 px-4 rounded-lg text-xs shadow-sm transition inline-flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                    <span>Buscar Caso Principal para Vincular...</span>
+                </button>
+                @error('parent_id_to_link') <span class="text-red-500 text-xs mt-1.5 block font-semibold">{{ $message }}</span> @enderror
             </div>
             @endif
 
@@ -454,29 +459,79 @@
                 </h3>
                 <div class="space-y-2">
                     @foreach($procedure->children as $child)
-                        <div class="bg-slate-50 border rounded-lg p-2.5 text-xs">
-                            <div class="flex justify-between items-start mb-1">
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs space-y-1">
+                            <div class="flex justify-between items-center gap-2">
                                 <a href="{{ route('procedures.show', $child->id) }}" target="_blank" class="font-bold text-blue-600 hover:underline">Caso #{{ $child->id }}</a>
-                                <span class="text-slate-500">{{ $child->created_at->format('H:i') }}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-500 font-mono text-[11px]">{{ $child->created_at->format('H:i') }}</span>
+                                    @if($canManualOverrideStatus)
+                                        <button type="button"
+                                                wire:click="unlinkChildProcedure({{ $child->id }})"
+                                                wire:confirm="¿Desvincular y reabrir el Caso Anexo #{{ $child->id }}?"
+                                                class="text-[10px] font-bold text-red-600 hover:underline">
+                                            Desvincular
+                                        </button>
+                                    @endif
+                                </div>
                             </div>
                             <p class="text-slate-700"><strong>Llama:</strong> {{ $child->caller_name ?: 'Anónimo' }} ({{ $child->caller_phone ?: 'S/T' }})</p>
+                            @if($child->evidences->count() > 0 || $child->calls->count() > 0)
+                                <p class="text-[10px] text-slate-500">
+                                    @if($child->calls->count() > 0)
+                                        <span class="mr-2">📞 {{ $child->calls->count() }} llamado(s)</span>
+                                    @endif
+                                    @if($child->evidences->count() > 0)
+                                        <span>📷 {{ $child->evidences->count() }} evidencia(s)</span>
+                                    @endif
+                                </p>
+                            @endif
                         </div>
                     @endforeach
                 </div>
             </div>
             @endif
 
-            {{-- Grabación Telefónica (Oculta para el rol Inspector) --}}
+            {{-- Grabación Telefónica y Llamadas Vinculadas (Oculta para el rol Inspector) --}}
             @unless(auth()->user()?->isInspectorOnly())
-                @if($procedure->call && $procedure->call->recording_path)
-                    <div class="p-4 bg-slate-900 rounded-xl shadow-inner">
-                        <label class="text-xs text-emerald-400 font-bold uppercase mb-2 block">
-                            🎙️ Grabación Telefónica
-                        </label>
-                        <audio controls class="w-full">
-                            <source src="{{ route('calls.play', $procedure->call->id) }}" type="audio/wav">
-                            Tu navegador no soporta audio.
-                        </audio>
+                @php
+                    $callsWithRecordings = $linkedCalls->filter(fn ($c) => ! empty($c->recording_path));
+                @endphp
+                @if($linkedCalls->count() > 0)
+                    <div class="p-4 bg-slate-900 rounded-xl shadow-inner space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs text-emerald-400 font-bold uppercase block">
+                                🎙️ Grabación Telefónica @if($linkedCalls->count() > 1) ({{ $linkedCalls->count() }} llamados) @endif
+                            </label>
+                            @if($callsWithRecordings->count() === 0)
+                                <span class="text-[10px] text-slate-400">Sin archivo de audio</span>
+                            @endif
+                        </div>
+
+                        <div class="space-y-2.5">
+                            @foreach($linkedCalls as $linkedCall)
+                                <div wire:key="proc-linked-call-{{ $linkedCall->id }}" class="p-2.5 rounded-lg bg-white/5 border border-white/10 space-y-1.5">
+                                    <div class="flex flex-wrap items-center justify-between gap-1 text-[11px]">
+                                        <span class="font-mono font-bold text-white">{{ $linkedCall->caller_id ?: 'Desconocido' }}</span>
+                                        <div class="flex items-center gap-1.5">
+                                            @if($linkedCall->procedure_id && (int) $linkedCall->procedure_id !== (int) $procedure->id)
+                                                <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                                                    Anexo #{{ $linkedCall->procedure_id }}
+                                                </span>
+                                            @endif
+                                            <span class="font-mono text-slate-300">{{ $linkedCall->created_at?->format('d/m H:i') }}</span>
+                                        </div>
+                                    </div>
+                                    @if($linkedCall->recording_path)
+                                        <audio wire:key="proc-call-audio-{{ $linkedCall->id }}" controls class="w-full h-8" preload="none" src="{{ route('calls.play', $linkedCall->id) }}">
+                                            <source src="{{ route('calls.play', $linkedCall->id) }}" type="audio/wav">
+                                            Tu navegador no soporta audio.
+                                        </audio>
+                                    @else
+                                        <span class="text-[10px] text-slate-400 italic block">Llamada vinculada sin grabación disponible.</span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
                 @endif
             @endunless
@@ -854,4 +909,125 @@
 
         </div>
     </div>
+
+    {{-- MODAL BUSCADOR DE CASO PRINCIPAL PARA AGRUPAR DUPLICADOS --}}
+    @if($isParentLinkModalOpen)
+        <div class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="link-parent-modal-title"
+             @keydown.escape.window="$wire.closeParentLinkModal()">
+            <div class="relative bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-white/10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-brand-lime block">
+                            AGRUPACIÓN DE CASOS DUPLICADOS
+                        </span>
+                        <h3 id="link-parent-modal-title" class="text-base font-black flex items-center gap-2">
+                            <i class="fa-solid fa-code-merge text-indigo-400" aria-hidden="true"></i>
+                            <span>Anexar Caso #{{ $procedure->id }} a un Caso Principal</span>
+                        </h3>
+                    </div>
+                    <button type="button"
+                            wire:click="closeParentLinkModal"
+                            aria-label="Cerrar buscador de caso principal"
+                            class="text-gray-300 hover:text-white p-1 rounded-md focus:outline-none">
+                        <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    @if($procedure->device)
+                        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-900 flex items-start gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5" aria-hidden="true"></i>
+                            <span>
+                                Atención: este caso (#{{ $procedure->id }}) tiene asignado el móvil <strong>{{ $procedure->device->name }}</strong>. Al anexarlo a un caso principal, este folio se cerrará y el móvil quedará liberado de este duplicado.
+                            </span>
+                        </div>
+                    @endif
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400 mr-1" aria-hidden="true"></i>
+                            Buscar Caso Principal (por Folio #, Dirección, Sector, Tipo o Solicitante)
+                        </label>
+                        <input type="text"
+                               wire:model.live.debounce.300ms="parentLinkSearch"
+                               placeholder="Ej: 45, Balmaceda, Robo, Sector Centro..."
+                               class="w-full text-xs rounded-lg border-slate-300 py-2 shadow-xs focus:ring-indigo-500 focus:border-indigo-500">
+                        @error('parent_id_to_link') <span class="text-red-500 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
+                            <input type="checkbox" wire:model.live="showClosedParentsInLink" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <span>Incluir casos cerrados</span>
+                        </label>
+                        <span class="text-[11px] text-slate-500">
+                            Se priorizan casos activos del mismo sector ({{ $procedure->sector->name ?? 'N/A' }}).
+                        </span>
+                    </div>
+
+                    <div class="max-h-72 overflow-y-auto space-y-2 border border-slate-200 rounded-xl p-2 bg-slate-50/50">
+                        @forelse($candidateParents as $cand)
+                            @php
+                                $sameSector = (int) $cand->sector_id === (int) $procedure->sector_id;
+                                $isClosedCand = $cand->status === 'Cerrado';
+                            @endphp
+                            <div wire:key="cand-parent-{{ $cand->id }}" class="bg-white p-3 rounded-lg border {{ $sameSector && ! $isClosedCand ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-slate-200' }} shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-indigo-300 transition">
+                                <div class="space-y-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-black text-sm text-slate-900">#{{ $cand->id }}</span>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-100 text-indigo-800">
+                                            {{ $cand->procedureType->name ?? 'Caso' }}
+                                        </span>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $isClosedCand ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700' }}">
+                                            {{ $cand->status }}
+                                        </span>
+                                        @if($sameSector)
+                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
+                                                Mismo Sector
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="text-xs text-slate-700 font-medium">
+                                        <i class="fa-solid fa-location-dot text-slate-400 text-[10px]" aria-hidden="true"></i>
+                                        {{ $cand->exact_address ?: 'Sin dirección' }}
+                                        @if($cand->sector)
+                                            <span class="text-slate-500 font-normal">({{ $cand->sector->name }})</span>
+                                        @endif
+                                    </div>
+                                    <div class="text-[11px] text-slate-500">
+                                        Solicitante: <span class="font-bold">{{ $cand->caller_name ?: 'Anónimo' }}</span>
+                                        • {{ $cand->created_at->format('d/m/Y H:i') }}
+                                    </div>
+                                </div>
+
+                                <button type="button"
+                                        wire:click="linkToParent({{ $cand->id }})"
+                                        wire:confirm="¿Confirmas anexar y cerrar el Caso #{{ $procedure->id }} dentro del Caso Principal #{{ $cand->id }}?"
+                                        class="w-full sm:w-auto shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-2 rounded-lg shadow-xs transition inline-flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-link" aria-hidden="true"></i>
+                                    <span>Anexar Aquí</span>
+                                </button>
+                            </div>
+                        @empty
+                            <div class="py-8 text-center text-slate-500 text-xs">
+                                <i class="fa-solid fa-folder-open text-2xl mb-1 block text-slate-300" aria-hidden="true"></i>
+                                No se encontraron casos principales disponibles con el filtro actual.
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+
+                <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+                    <button type="button"
+                            wire:click="closeParentLinkModal"
+                            class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
