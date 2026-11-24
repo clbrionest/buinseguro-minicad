@@ -30,6 +30,11 @@ class CallsReport extends Component
 
     public $notes = '';
 
+    // Variables para el Modal de Lectura de Nota de Tipificación
+    public $isNoteModalOpen = false;
+
+    public $selectedCallForNote = null;
+
     // Variables para el Modal de Vinculación a Caso Existente
     public $isLinkModalOpen = false;
 
@@ -38,6 +43,10 @@ class CallsReport extends Component
     public $selectedCallForLinking = null;
 
     public $procedureSearch = '';
+
+    public $linkNote = '';
+
+    public $showClosedProceduresInLink = false;
 
     public function mount(): void
     {
@@ -81,6 +90,30 @@ class CallsReport extends Component
         $this->reset(['selectedCallId', 'classification', 'notes']);
     }
 
+    // Modal de Lectura Rápida de Detalle / Nota de Tipificación
+    public function openNoteModal(int $id): void
+    {
+        $this->selectedCallForNote = Call::findOrFail($id);
+        $this->isNoteModalOpen = true;
+    }
+
+    public function closeNoteModal(): void
+    {
+        $this->isNoteModalOpen = false;
+        $this->selectedCallForNote = null;
+    }
+
+    public function editClassificationFromNoteModal(): void
+    {
+        if (! $this->selectedCallForNote) {
+            return;
+        }
+
+        $callId = (int) $this->selectedCallForNote->id;
+        $this->closeNoteModal();
+        $this->openClassifyModal($callId);
+    }
+
     public function saveClassification(): void
     {
         $this->validate([
@@ -116,22 +149,42 @@ class CallsReport extends Component
         $this->selectedCallForLinkingId = $call->id;
         $this->selectedCallForLinking = $call;
         $this->procedureSearch = '';
+        $this->linkNote = '';
+        $this->showClosedProceduresInLink = false;
+        $this->resetValidation(['linkNote', 'procedureSearch']);
         $this->isLinkModalOpen = true;
     }
 
     public function closeLinkModal(): void
     {
         $this->isLinkModalOpen = false;
-        $this->reset(['selectedCallForLinkingId', 'selectedCallForLinking', 'procedureSearch']);
+        $this->reset([
+            'selectedCallForLinkingId',
+            'selectedCallForLinking',
+            'procedureSearch',
+            'linkNote',
+            'showClosedProceduresInLink',
+        ]);
     }
 
     public function linkCallToProcedure(int $procedureId): void
     {
+        $this->validate([
+            'linkNote' => 'nullable|string|max:500',
+        ]);
+
         $call = Call::findOrFail($this->selectedCallForLinkingId);
         $procedure = Procedure::with(['sector', 'procedureType'])->findOrFail($procedureId);
 
+        if ($procedure->parent_id) {
+            $this->addError('procedureSearch', "El Caso #{$procedure->id} es un anexo cerrado. Vincula la llamada directamente al Caso Principal #{$procedure->parent_id}.");
+
+            return;
+        }
+
         $call->update([
             'procedure_id' => $procedure->id,
+            'classification' => null,
         ]);
 
         // Si el procedimiento aún no tenía grabación vinculada, asignamos esta llamada
@@ -141,11 +194,17 @@ class CallsReport extends Component
             ]);
         }
 
+        $noteText = trim((string) $this->linkNote);
+        $logDescription = "Se vinculó llamada telefónica #{$call->id} (Origen: {$call->caller_id}, Anexo: {$call->extension}) al procedimiento.";
+        if ($noteText !== '') {
+            $logDescription .= " Nota: {$noteText}";
+        }
+
         ProcedureLog::create([
             'procedure_id' => $procedure->id,
             'user_id' => auth()->id(),
             'action_type' => 'Llamada Vinculada',
-            'description' => "Se vinculó llamada telefónica #{$call->id} (Origen: {$call->caller_id}, Anexo: {$call->extension}) al procedimiento.",
+            'description' => $logDescription,
         ]);
 
         AuditLog::record(
@@ -153,11 +212,12 @@ class CallsReport extends Component
             'Telefonía PBX',
             "Llamada #{$call->id} ({$call->caller_id}) vinculada manualmente al Caso Folio #{$procedure->id}.",
             $call,
-            [
+            array_filter([
                 'procedure_id' => $procedure->id,
                 'call_id' => $call->id,
                 'caller_id' => $call->caller_id,
-            ]
+                'note' => $noteText !== '' ? $noteText : null,
+            ], fn ($v) => ! is_null($v))
         );
 
         $this->closeLinkModal();
@@ -227,11 +287,16 @@ class CallsReport extends Component
             'Otro',
         ]);
 
-        // Consulta de casos candidatos para el modal de vinculación
+        // Consulta de casos candidatos para el modal de vinculación (excluye anexos hijos)
         $availableProcedures = collect();
         if ($this->isLinkModalOpen && $this->selectedCallForLinking) {
             $term = trim($this->procedureSearch);
+            $includeClosed = (bool) $this->showClosedProceduresInLink || ($term !== '' && is_numeric($term));
+
             $procQuery = Procedure::with(['procedureType', 'sector'])
+                ->whereNull('parent_id')
+                ->when(! $includeClosed, fn ($q) => $q->where('status', '!=', 'Cerrado'))
+                ->orderByRaw("CASE WHEN status = 'Cerrado' THEN 1 ELSE 0 END ASC")
                 ->orderBy('created_at', 'desc');
 
             if ($term !== '') {
@@ -243,23 +308,24 @@ class CallsReport extends Component
                         $q->where('exact_address', 'like', "%{$term}%")
                             ->orWhere('caller_name', 'like', "%{$term}%")
                             ->orWhere('caller_phone', 'like', "%{$term}%")
-                            ->orWhereHas('procedureType', fn ($sub) => $sub->where('name', 'like', "%{$term}%"));
+                            ->orWhereHas('procedureType', fn ($sub) => $sub->where('name', 'like', "%{$term}%"))
+                            ->orWhereHas('sector', fn ($sub) => $sub->where('name', 'like', "%{$term}%"));
                     }
                 });
                 $availableProcedures = $procQuery->take(20)->get();
             } else {
-                // Sugerencias: primero casos con el mismo número telefónico
-                $callerPhone = $this->selectedCallForLinking->caller_id;
-                if ($callerPhone && $callerPhone !== 'Desconocido' && strlen($callerPhone) >= 4) {
-                    $sameCaller = Procedure::with(['procedureType', 'sector'])
-                        ->where('caller_phone', $callerPhone)
-                        ->orderBy('created_at', 'desc')
+                // Sugerencias: primero casos con el mismo teléfono normalizado (últimos 8 dígitos)
+                $phoneSuffix = Procedure::normalizePhoneSuffix($this->selectedCallForLinking->caller_id);
+                if ($phoneSuffix !== '') {
+                    $sameCaller = (clone $procQuery)
+                        ->where('caller_phone', 'like', "%{$phoneSuffix}")
                         ->take(5)
                         ->get();
 
-                    $otherRecent = Procedure::with(['procedureType', 'sector'])
-                        ->where('caller_phone', '!=', $callerPhone)
-                        ->orderBy('created_at', 'desc')
+                    $sameCallerIds = $sameCaller->pluck('id')->toArray();
+
+                    $otherRecent = (clone $procQuery)
+                        ->when(! empty($sameCallerIds), fn ($q) => $q->whereNotIn('id', $sameCallerIds))
                         ->take(10)
                         ->get();
 

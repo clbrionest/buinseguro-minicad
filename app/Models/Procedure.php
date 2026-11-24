@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class Procedure extends Model
 {
@@ -305,5 +306,52 @@ class Procedure extends Model
     {
         // Un procedimiento pertenece a una llamada (si es que vino de una)
         return $this->belongsTo(Call::class, 'call_id');
+    }
+
+    public function calls()
+    {
+        return $this->hasMany(Call::class, 'procedure_id');
+    }
+
+    /**
+     * Normaliza un teléfono extrayendo sus últimos 8 dígitos para coincidencias flexibles (+569... vs 9...).
+     */
+    public static function normalizePhoneSuffix(?string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if (! is_string($digits) || strlen($digits) < 6) {
+            return '';
+        }
+
+        return substr($digits, -8);
+    }
+
+    /**
+     * Devuelve todas las llamadas asociadas al procedimiento (llamada origen, vinculadas manualmente y de anexos).
+     *
+     * @return Collection<int, Call>
+     */
+    public function getAllLinkedCallsAttribute()
+    {
+        $all = collect();
+
+        if ($this->call) {
+            $all->push($this->call);
+        }
+
+        foreach ($this->calls ?? [] as $linkedCall) {
+            $all->push($linkedCall);
+        }
+
+        foreach ($this->children ?? [] as $child) {
+            if ($child->call) {
+                $all->push($child->call);
+            }
+            foreach ($child->calls ?? [] as $childCall) {
+                $all->push($childCall);
+            }
+        }
+
+        return $all->unique('id')->sortBy('created_at')->values();
     }
 }

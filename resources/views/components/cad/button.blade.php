@@ -11,10 +11,10 @@
     $variantClasses = match($variant) {
         'primary'   => 'bg-brand-cobalt hover:bg-brand-cobalt-deep text-brand-white dark:bg-brand-cobalt-mid dark:hover:bg-brand-cobalt-light dark:text-brand-black border border-transparent shadow-xs',
         'accent'    => 'bg-brand-lime hover:bg-brand-lime-mid text-brand-black border border-brand-lime-deep/20 shadow-xs font-extrabold',
-        'secondary' => 'bg-ui-card hover:bg-ui-subtle text-ui-fg border border-ui-border shadow-xs',
-        'danger'    => 'bg-priority-critical hover:opacity-90 text-brand-white border border-transparent shadow-xs',
-        'ghost'     => 'bg-transparent hover:bg-ui-subtle text-ui-fg border border-transparent',
-        default     => 'bg-brand-cobalt hover:bg-brand-cobalt-deep text-brand-white dark:bg-brand-cobalt-mid dark:text-brand-black',
+        'secondary' => 'bg-ui-card hover:bg-ui-subtle dark:hover:bg-[#2F364B] dark:hover:border-[#47516B] text-ui-fg border border-ui-border shadow-xs',
+        'danger'    => 'bg-priority-critical hover:bg-[#B91C1C] text-brand-white border border-transparent shadow-xs',
+        'ghost'     => 'bg-transparent hover:bg-ui-subtle dark:hover:bg-[#2A3145] text-ui-fg border border-transparent',
+        default     => 'bg-brand-cobalt hover:bg-brand-cobalt-deep text-brand-white dark:bg-brand-cobalt-mid dark:hover:bg-brand-cobalt-light dark:text-brand-black',
     };
 
     $sizeClasses = match($size) {

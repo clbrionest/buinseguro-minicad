@@ -124,11 +124,22 @@
                                     </div>
                                 @else
                                     @if($call->classification)
-                                        <div class="inline-flex flex-col items-center">
-                                            <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-200">
-                                                {{ $call->classification }}
+                                        <div class="inline-flex flex-col items-center gap-1">
+                                            <div class="inline-flex items-center gap-1.5">
+                                                <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-200">
+                                                    {{ $call->classification }}
+                                                </span>
+                                                <button type="button"
+                                                        wire:click="openNoteModal({{ $call->id }})"
+                                                        title="{{ $call->notes ? 'Ver descripción de tipificación' : 'Ver detalle de tipificación (sin nota)' }}"
+                                                        aria-label="Ver descripción de tipificación de la llamada #{{ $call->id }}"
+                                                        class="inline-flex items-center justify-center w-6 h-6 rounded-md border transition {{ $call->notes ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100' : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200' }}">
+                                                    <i class="fa-solid {{ $call->notes ? 'fa-comment-dots' : 'fa-circle-info' }} text-[11px]" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                            <span class="text-[9px] text-gray-400">
+                                                {{ $call->notes ? 'Con descripción' : 'Sin caso creado' }}
                                             </span>
-                                            <span class="text-[9px] text-gray-400">Sin caso creado</span>
                                         </div>
                                     @else
                                         <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-[10px] font-bold border border-gray-200">
@@ -277,23 +288,47 @@
                         @endif
                     </div>
 
-                    {{-- Buscador de Casos --}}
-                    <div>
-                        <label class="block text-xs font-bold uppercase text-slate-700 mb-1">
-                            <i class="fa-solid fa-magnifying-glass text-slate-400 mr-1"></i>
-                            Buscar Caso Existente (por Folio #, Solicitante, Dirección o Tipo)
+                    {{-- Buscador de Casos y Nota Opcional --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-700 mb-1">
+                                <i class="fa-solid fa-magnifying-glass text-slate-400 mr-1"></i>
+                                Buscar Caso Principal (Folio, Dirección, Sector, Tipo)
+                            </label>
+                            <input type="text"
+                                   wire:model.live.debounce.300ms="procedureSearch"
+                                   placeholder="Ej: 45, San Martín, Robo, María González..."
+                                   class="w-full text-xs rounded-lg border-gray-300 py-2 shadow-xs focus:ring-indigo-500 focus:border-indigo-500">
+                            @error('procedureSearch') <span class="text-red-500 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-700 mb-1">
+                                <i class="fa-solid fa-note-sticky text-slate-400 mr-1"></i>
+                                Nota de Vinculación en Bitácora (Opcional)
+                            </label>
+                            <input type="text"
+                                   wire:model="linkNote"
+                                   placeholder="Ej: Vecino vuelve a llamar consultando demora de móvil..."
+                                   class="w-full text-xs rounded-lg border-gray-300 py-2 shadow-xs focus:ring-indigo-500 focus:border-indigo-500">
+                            @error('linkNote') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
+                            <input type="checkbox" wire:model.live="showClosedProceduresInLink" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <span>Incluir casos cerrados en la lista</span>
                         </label>
-                        <input type="text"
-                               wire:model.live.debounce.300ms="procedureSearch"
-                               placeholder="Ej: 45, San Martín, Robo, María González..."
-                               class="w-full text-xs rounded-lg border-gray-300 py-2 shadow-xs focus:ring-indigo-500 focus:border-indigo-500">
+                        <span class="text-[11px] text-slate-500">
+                            Se excluyen automáticamente los casos anexos (duplicados).
+                        </span>
                     </div>
 
                     {{-- Lista de Casos Candidatos --}}
                     <div>
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-[10px] font-extrabold uppercase text-slate-500">
-                                {{ $procedureSearch ? 'Resultados de Búsqueda:' : 'Casos Sugeridos / Recientes:' }}
+                                {{ $procedureSearch ? 'Resultados de Búsqueda:' : 'Casos Activos Sugeridos / Recientes:' }}
                             </span>
                             <span class="text-[10px] text-slate-400">
                                 Mostrando {{ $availableProcedures->count() }} casos
@@ -301,23 +336,33 @@
                         </div>
 
                         <div class="max-h-72 overflow-y-auto space-y-2 border border-slate-200 rounded-xl p-2 bg-slate-50/50">
+                            @php
+                                $callPhoneSuffix = \App\Models\Procedure::normalizePhoneSuffix($selectedCallForLinking->caller_id);
+                            @endphp
                             @forelse($availableProcedures as $proc)
                                 @php
-                                    $isSamePhone = $proc->caller_phone && $proc->caller_phone === $selectedCallForLinking->caller_id;
+                                    $procPhoneSuffix = \App\Models\Procedure::normalizePhoneSuffix($proc->caller_phone);
+                                    $isSamePhone = $callPhoneSuffix !== '' && $procPhoneSuffix !== '' && $callPhoneSuffix === $procPhoneSuffix;
+                                    $isClosedProc = $proc->status === 'Cerrado';
                                 @endphp
-                                <div class="bg-white p-3 rounded-lg border {{ $isSamePhone ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-slate-200' }} shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-indigo-300 transition">
+                                <div class="bg-white p-3 rounded-lg border {{ $isSamePhone ? 'border-emerald-300 ring-1 ring-emerald-200' : ($isClosedProc ? 'border-amber-200' : 'border-slate-200') }} shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-indigo-300 transition">
                                     <div class="space-y-1">
-                                        <div class="flex items-center gap-2">
+                                        <div class="flex flex-wrap items-center gap-2">
                                             <span class="font-black text-sm text-slate-900">#{{ $proc->id }}</span>
                                             <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-indigo-100 text-indigo-800">
                                                 {{ $proc->procedureType->name ?? 'Caso' }}
                                             </span>
-                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $isClosedProc ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700' }}">
                                                 {{ $proc->status }}
                                             </span>
                                             @if($isSamePhone)
                                                 <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">
                                                     Mismo Teléfono
+                                                </span>
+                                            @endif
+                                            @if($isClosedProc)
+                                                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800">
+                                                    ⚠️ Caso ya cerrado
                                                 </span>
                                             @endif
                                         </div>
@@ -405,6 +450,83 @@
                     </button>
                     <button type="button" wire:click="saveClassification" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs">
                         Guardar Tipificación
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- MODAL 3: DETALLE / DESCRIPCIÓN DE TIPIFICACIÓN --}}
+    @if($isNoteModalOpen && $selectedCallForNote)
+        <div class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="call-note-modal-title"
+             @keydown.escape.window="$wire.closeNoteModal()">
+            <div class="relative bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-white/10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-amber-300 block">
+                            LLAMADA TIPIFICADA
+                        </span>
+                        <h3 id="call-note-modal-title" class="text-sm font-black flex items-center gap-2">
+                            <i class="fa-solid fa-comment-dots text-amber-400" aria-hidden="true"></i>
+                            <span>Detalle de Tipificación</span>
+                        </h3>
+                    </div>
+                    <button type="button"
+                            wire:click="closeNoteModal"
+                            aria-label="Cerrar detalle de tipificación"
+                            class="text-gray-300 hover:text-white p-1 rounded-md focus:outline-none">
+                        <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase text-slate-500 block">Número Origen</span>
+                            <span class="font-mono font-black text-sm text-slate-900">{{ $selectedCallForNote->caller_id }}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-bold uppercase text-slate-500 block">Fecha / Hora</span>
+                            <span class="font-mono text-xs font-bold text-slate-700">{{ $selectedCallForNote->created_at->format('d/m/Y H:i:s') }}</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="text-[10px] font-bold uppercase text-slate-500 block mb-1">Motivo / Clasificación</span>
+                        <span class="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md text-xs font-black border border-amber-200">
+                            <i class="fa-solid fa-tag text-[10px]" aria-hidden="true"></i>
+                            <span>{{ $selectedCallForNote->classification }}</span>
+                        </span>
+                    </div>
+
+                    <div>
+                        <span class="text-[10px] font-bold uppercase text-slate-500 block mb-1">Descripción / Notas de Tipificación</span>
+                        @if(filled($selectedCallForNote->notes))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 whitespace-pre-line leading-relaxed">
+                                {{ $selectedCallForNote->notes }}
+                            </div>
+                        @else
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-dashed border-slate-300 text-xs text-slate-500 italic">
+                                No se registraron notas adicionales al tipificar esta llamada.
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center gap-2">
+                    <button type="button"
+                            wire:click="editClassificationFromNoteModal"
+                            class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs inline-flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                        <span>Editar Tipificación</span>
+                    </button>
+                    <button type="button"
+                            wire:click="closeNoteModal"
+                            class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 transition">
+                        Cerrar
                     </button>
                 </div>
             </div>
