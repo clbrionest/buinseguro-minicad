@@ -60,6 +60,13 @@ class ShowProcedure extends Component
 
     public $showClosedParentsInLink = false;
 
+    // Modal de Reapertura de Caso Cerrado (solo Administrador / Supervisor)
+    public bool $isReopenModalOpen = false;
+
+    public string $reopen_status = 'En el Lugar';
+
+    public string $reopen_reason = '';
+
     // Categorización Operativa y Metadatos Dinámicos al operar el caso
     public $operational_procedure_type_id = '';
 
@@ -847,6 +854,85 @@ class ShowProcedure extends Component
         $this->procedure->refresh();
         $this->procedure->load(['children.logs', 'children.call', 'children.calls', 'children.evidences', 'call', 'calls']);
         session()->flash('message', "Caso Anexo #{$child->id} desvinculado y reabierto en estado {$reopenedStatus}.");
+    }
+
+    public function openReopenModal(): void
+    {
+        abort_unless($this->canManualOverrideStatus(), 403, 'Solo Administrador o Supervisor pueden reabrir un procedimiento cerrado.');
+
+        $this->resetValidation(['reopen_status', 'reopen_reason']);
+        $this->reopen_reason = '';
+        $this->reopen_status = $this->procedure->arrived_at
+            ? 'En el Lugar'
+            : ($this->procedure->device_id ? 'En Camino' : 'Pendiente');
+        $this->isReopenModalOpen = true;
+    }
+
+    public function closeReopenModal(): void
+    {
+        $this->isReopenModalOpen = false;
+        $this->reset(['reopen_reason']);
+        $this->resetValidation(['reopen_status', 'reopen_reason']);
+    }
+
+    public function reopenProcedure(): void
+    {
+        $user = Auth::user();
+        if (! $user || ! $user->hasAnyRole(['Administrador', 'Supervisor'])) {
+            abort(403, 'Solo Administrador o Supervisor pueden reabrir un procedimiento cerrado.');
+        }
+
+        if ($this->procedure->status !== 'Cerrado') {
+            $this->closeReopenModal();
+
+            return;
+        }
+
+        if ($this->procedure->parent_id) {
+            $this->addError('reopen_reason', "Este caso está cerrado como anexo del Caso Principal #{$this->procedure->parent_id}. Desvincúlalo desde el caso principal para reabrirlo.");
+
+            return;
+        }
+
+        $this->validate([
+            'reopen_status' => 'required|in:Pendiente,En Camino,En el Lugar,Derivado',
+            'reopen_reason' => 'required|string|min:5|max:500',
+        ], [
+            'reopen_reason.required' => 'Debe indicar el motivo de la reapertura para trazabilidad.',
+            'reopen_reason.min' => 'El motivo de reapertura debe tener al menos 5 caracteres.',
+        ]);
+
+        $reason = trim($this->reopen_reason);
+        $oldStatus = $this->procedure->status;
+
+        $this->procedure->update([
+            'status' => $this->reopen_status,
+            'closed_at' => null,
+        ]);
+
+        ProcedureLog::create([
+            'procedure_id' => $this->procedure->id,
+            'user_id' => $user->id,
+            'action_type' => 'Reapertura de Procedimiento',
+            'description' => "Procedimiento reabierto por {$user->name} en estado \"{$this->reopen_status}\". Motivo: {$reason}",
+        ]);
+
+        AuditLog::record(
+            'procedure.reopened',
+            'Procedimientos',
+            "Reapertura de Procedimiento #{$this->procedure->id} por {$user->name} (nuevo estado: {$this->reopen_status}). Motivo: {$reason}",
+            $this->procedure,
+            [
+                'previous_status' => $oldStatus,
+                'new_status' => $this->reopen_status,
+                'reason' => $reason,
+            ]
+        );
+
+        $this->status = $this->reopen_status;
+        $this->closeReopenModal();
+        $this->procedure->refresh();
+        session()->flash('message', "Procedimiento #{$this->procedure->id} reabierto en estado \"{$this->status}\". Ya puedes corregir o agregar información.");
     }
 
     public function startEditingLog(int $logId): void

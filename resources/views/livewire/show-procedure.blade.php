@@ -959,8 +959,23 @@
                 </form>
             </div>
             @else
-            <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl shadow-sm font-bold text-center text-sm">
-                🔒 Este procedimiento se encuentra CERRADO. No se pueden agregar más anotaciones regulares.
+            <div class="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="font-bold text-sm text-center sm:text-left">
+                    🔒 Este procedimiento se encuentra CERRADO. No se pueden agregar más anotaciones regulares.
+                    @if($procedure->parent_id && $canManualOverrideStatus)
+                        <span class="block text-xs font-medium mt-1">
+                            Para reabrir este anexo, desvincúlalo primero desde el <a href="{{ route('procedures.show', $procedure->parent_id) }}" class="underline font-bold">Caso Principal #{{ $procedure->parent_id }}</a>.
+                        </span>
+                    @endif
+                </div>
+                @if($canManualOverrideStatus && ! $procedure->parent_id)
+                    <button type="button"
+                            wire:click="openReopenModal"
+                            class="shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs px-4 py-2 rounded-lg shadow-xs inline-flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-lock-open" aria-hidden="true"></i>
+                        <span>Reabrir Caso</span>
+                    </button>
+                @endif
             </div>
             @endif
 
@@ -1139,6 +1154,76 @@
                         Cancelar
                     </button>
                 </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- MODAL DE REAPERTURA DE PROCEDIMIENTO CERRADO (SOLO ADMIN / SUPERVISOR) --}}
+    @if($isReopenModalOpen && $canManualOverrideStatus)
+        <div class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="reopen-procedure-modal-title"
+             @keydown.escape.window="$wire.closeReopenModal()">
+            <div class="relative bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-white/10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-widest text-amber-300 block">
+                            SUPERVISIÓN Y CORRECCIÓN
+                        </span>
+                        <h3 id="reopen-procedure-modal-title" class="text-base font-black flex items-center gap-2">
+                            <i class="fa-solid fa-lock-open text-amber-400" aria-hidden="true"></i>
+                            <span>Reabrir Procedimiento #{{ $procedure->id }}</span>
+                        </h3>
+                    </div>
+                    <button type="button"
+                            wire:click="closeReopenModal"
+                            aria-label="Cerrar ventana"
+                            class="text-gray-300 hover:text-white p-1 rounded-md">
+                        <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <form wire:submit.prevent="reopenProcedure">
+                    <div class="p-6 space-y-4">
+                        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-semibold">
+                            Al reabrir el procedimiento se habilitará nuevamente la edición de categoría, antecedentes, bitácora y carga de evidencias. Esta acción quedará registrada en la bitácora y en la auditoría de seguridad.
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Estado Operativo al Reabrir *</label>
+                            <select wire:model="reopen_status" class="w-full rounded-lg border-slate-300 shadow-sm text-sm font-bold">
+                                <option value="Pendiente">Pendiente</option>
+                                <option value="En Camino">En Camino</option>
+                                <option value="En el Lugar">En el Lugar</option>
+                                <option value="Derivado">Derivado</option>
+                            </select>
+                            @error('reopen_status') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Motivo de la Reapertura *</label>
+                            <textarea wire:model="reopen_reason"
+                                      rows="3"
+                                      placeholder="Ej: Faltó adjuntar evidencia fotográfica y corregir categoría operativa..."
+                                      class="w-full rounded-lg border-slate-300 shadow-sm text-sm"></textarea>
+                            @error('reopen_reason') <span class="text-red-500 text-xs mt-1 block font-semibold">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+
+                    <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                        <button type="button"
+                                wire:click="closeReopenModal"
+                                class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition">
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-extrabold shadow-xs inline-flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-lock-open" aria-hidden="true"></i>
+                            <span>Confirmar Reapertura</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     @endif
