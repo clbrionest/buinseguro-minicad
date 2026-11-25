@@ -333,4 +333,51 @@ class ProcedureLogStageWorkflowTest extends TestCase
         $this->assertNull($child->closed_at);
         $this->assertDatabaseHas('audit_logs', ['action' => 'procedure.unlinked_from_parent']);
     }
+
+    public function test_only_admin_or_supervisor_can_reopen_a_closed_procedure_with_reason(): void
+    {
+        $supervisor = User::factory()->create();
+        $supervisor->assignRole('Supervisor');
+
+        $operator = $this->createOperator();
+
+        $procedure = $this->createProcedure($supervisor, 'Cerrado');
+        $procedure->update(['closed_at' => now()]);
+
+        // 1. Operador NO puede reabrir un caso cerrado
+        Livewire::actingAs($operator)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            ->assertDontSee('Reabrir Caso')
+            ->call('openReopenModal')
+            ->assertForbidden();
+
+        Livewire::actingAs($operator)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            ->set('reopen_reason', 'Intento no autorizado')
+            ->call('reopenProcedure')
+            ->assertForbidden();
+
+        // 2. Supervisor SÍ puede reabrir, pero exige motivo obligatorio
+        Livewire::actingAs($supervisor)
+            ->test(ShowProcedure::class, ['procedure' => $procedure])
+            ->assertSee('Reabrir Caso')
+            ->call('openReopenModal')
+            ->assertSet('isReopenModalOpen', true)
+            ->call('reopenProcedure')
+            ->assertHasErrors(['reopen_reason'])
+            ->set('reopen_status', 'En el Lugar')
+            ->set('reopen_reason', 'Se requiere complementar antecedentes y adjuntar fotografías.')
+            ->call('reopenProcedure')
+            ->assertHasNoErrors()
+            ->assertSet('isReopenModalOpen', false);
+
+        $procedure->refresh();
+        $this->assertSame('En el Lugar', $procedure->status);
+        $this->assertNull($procedure->closed_at);
+        $this->assertDatabaseHas('procedure_logs', [
+            'procedure_id' => $procedure->id,
+            'action_type' => 'Reapertura de Procedimiento',
+        ]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'procedure.reopened']);
+    }
 }
