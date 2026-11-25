@@ -17,11 +17,6 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-            <label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer">
-                <input type="checkbox" wire:model.live="includeWatermark" class="rounded border-slate-300 text-brand-cobalt focus:ring-brand-cobalt">
-                <span>Marca de agua en fotos</span>
-            </label>
-
             @if($this->selectedBatchPdfUrl)
                 <a href="{{ $this->selectedBatchPdfUrl }}"
                    target="_blank"
@@ -163,7 +158,7 @@
                                 <td class="py-3 px-4 text-center whitespace-nowrap">
                                     <div class="inline-flex items-center gap-2">
                                         <a href="{{ route('procedures.show', $proc->id) }}" class="text-blue-600 hover:underline font-bold">Abrir</a>
-                                        <a href="{{ route('procedures.print', ['procedure' => $proc->id, 'watermark' => $includeWatermark ? '1' : '0']) }}"
+                                        <a href="{{ route('procedures.print', $proc->id) }}"
                                            target="_blank"
                                            class="px-2 py-1 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold">
                                             🖨️ PDF

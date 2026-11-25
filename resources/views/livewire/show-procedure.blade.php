@@ -34,12 +34,7 @@
         @php $sla = $procedure->sla_traffic_light; @endphp
         <div class="flex flex-wrap items-center gap-2.5">
             <x-cad.priority-badge :sla="$sla" class="bg-black/25! text-white! border-white/20!" />
-            <label class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/15 border border-white/20 text-brand-white text-[11px] font-bold px-2.5 py-2 rounded-lg cursor-pointer select-none transition"
-                   title="Activar o desactivar marca de agua institucional sobre las fotografías al generar el PDF">
-                <input type="checkbox" wire:model.live="pdfWatermark" class="rounded border-white/40 bg-black/30 text-brand-lime focus:ring-brand-lime">
-                <span>Marca de agua</span>
-            </label>
-            <a href="{{ route('procedures.print', ['procedure' => $procedure->id, 'watermark' => $pdfWatermark ? '1' : '0']) }}" target="_blank" class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black text-xs font-extrabold py-2 px-3.5 rounded-lg shadow-xs inline-flex items-center gap-1.5 transition">
+            <a href="{{ route('procedures.print', $procedure->id) }}" target="_blank" class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black text-xs font-extrabold py-2 px-3.5 rounded-lg shadow-xs inline-flex items-center gap-1.5 transition">
                 <i class="fa-solid fa-print" aria-hidden="true"></i>
                 <span>Ficha Oficial / PDF</span>
             </a>

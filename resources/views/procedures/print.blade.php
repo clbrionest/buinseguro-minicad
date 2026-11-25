@@ -6,37 +6,22 @@
     <title>Ficha Procedimiento #{{ $procedure->id }} - BuinSeguro</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
-        .cad-watermark-overlay {
+        .cad-watermark-corner {
             pointer-events: none;
             user-select: none;
             position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            background: repeating-linear-gradient(
-                -30deg,
-                rgba(15, 23, 42, 0.04) 0px,
-                rgba(15, 23, 42, 0.04) 24px,
-                transparent 24px,
-                transparent 48px
-            );
-        }
-        .cad-watermark-text {
-            transform: rotate(-28deg);
-            font-size: 11px;
-            font-weight: 900;
-            letter-spacing: 0.12em;
+            right: 6px;
+            bottom: 6px;
+            font-size: 8.5px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
             text-transform: uppercase;
             color: rgba(255, 255, 255, 0.78);
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-            text-align: center;
-            line-height: 1.35;
-            padding: 4px 10px;
-            border: 1px solid rgba(255, 255, 255, 0.45);
-            background: rgba(15, 23, 42, 0.35);
-            border-radius: 4px;
+            background: rgba(15, 23, 42, 0.38);
+            padding: 2px 6px;
+            border-radius: 3px;
+            line-height: 1.2;
+            backdrop-filter: blur(1px);
         }
         @media print {
             .no-print { display: none !important; }
@@ -258,12 +243,8 @@
                         <div class="border border-gray-300 rounded p-1.5 text-center">
                             <div class="relative overflow-hidden rounded mb-1">
                                 <img src="{{ asset('storage/' . $ev->file_path) }}" class="w-full h-40 object-cover">
-                                <div x-show="watermark" class="cad-watermark-overlay">
-                                    <span class="cad-watermark-text">
-                                        BUIN SEGURO<br>
-                                        FOLIO #{{ str_pad($procedure->id, 6, '0', STR_PAD_LEFT) }}<br>
-                                        {{ $ev->created_at->format('d/m/Y H:i') }}
-                                    </span>
+                                <div x-show="watermark" class="cad-watermark-corner">
+                                    BUIN SEGURO · #{{ str_pad($procedure->id, 6, '0', STR_PAD_LEFT) }}
                                 </div>
                             </div>
                             <span class="text-[10px] text-gray-500 block">

@@ -26,8 +26,6 @@ class OperatorReports extends Component
     /** @var array<int, int|string> */
     public array $selectedProcedureIds = [];
 
-    public bool $includeWatermark = true;
-
     public function mount(): void
     {
         abort_unless(auth()->user()?->hasAnyRole(['Administrador', 'Supervisor', 'Operador']), 403);
@@ -88,7 +86,6 @@ class OperatorReports extends Component
 
         return route('procedures.print-batch', [
             'ids' => implode(',', $ids),
-            'watermark' => $this->includeWatermark ? '1' : '0',
             'from' => $this->startDate,
             'to' => $this->endDate,
         ]);
