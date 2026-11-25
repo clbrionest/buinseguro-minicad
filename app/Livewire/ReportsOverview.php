@@ -2,13 +2,16 @@
 
 namespace App\Livewire;
 
+use App\Exports\ProceduresExport;
+use App\Models\AuditLog;
+use App\Models\Device;
+use App\Models\Procedure;
+use App\Models\ProcedureType;
+use App\Models\Sector;
+use App\Models\User;
+use Carbon\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
-use App\Models\Procedure;
-use App\Models\Sector;
-use App\Models\ProcedureType;
-use Carbon\Carbon;
-use App\Exports\ProceduresExport;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ReportsOverview extends Component
@@ -17,26 +20,38 @@ class ReportsOverview extends Component
 
     // Variables de los filtros
     public $startDate;
+
     public $endDate;
+
     public $sector_id = '';
+
     public $procedure_type_id = '';
+
     public $status_filter = '';
+
     public $device_id = '';
+
+    public $user_id = '';
 
     // Catálogos para los selects
     public $sectors;
+
     public $procedureTypes;
+
     public $devices;
+
+    public $operators;
 
     public function mount()
     {
         // Por defecto, mostramos los casos de los últimos 30 días
         $this->startDate = Carbon::now()->subDays(30)->format('Y-m-d');
         $this->endDate = Carbon::now()->format('Y-m-d');
-        
+
         $this->sectors = Sector::orderBy('name')->get();
         $this->procedureTypes = ProcedureType::orderBy('name')->get();
-        $this->devices = \App\Models\Device::orderBy('name')->get();
+        $this->devices = Device::orderBy('name')->get();
+        $this->operators = User::orderBy('name')->get();
     }
 
     // Si el usuario cambia un filtro, reiniciamos a la página 1 de la tabla
@@ -53,14 +68,34 @@ class ReportsOverview extends Component
 
     public function exportToExcel()
     {
-        $fileName = 'Reporte_Procedimientos_' . now()->format('Y-m-d_H-i') . '.xlsx';
+        $fileName = 'Reporte_Procedimientos_'.now()->format('Y-m-d_H-i').'.xlsx';
 
-        // Le pasamos los filtros actuales al exportador
+        AuditLog::record(
+            'procedure.export',
+            'Reportes',
+            "Exportación Excel de procedimientos ({$this->startDate} a {$this->endDate}).",
+            null,
+            [
+                'format' => 'xlsx',
+                'start_date' => $this->startDate,
+                'end_date' => $this->endDate,
+                'sector_id' => $this->sector_id ?: null,
+                'procedure_type_id' => $this->procedure_type_id ?: null,
+                'device_id' => $this->device_id ?: null,
+                'status' => $this->status_filter ?: null,
+                'user_id' => $this->user_id ?: null,
+            ]
+        );
+
+        // Le pasamos TODOS los filtros actuales al exportador
         return Excel::download(new ProceduresExport(
             $this->startDate,
             $this->endDate,
             $this->sector_id,
-            $this->procedure_type_id
+            $this->procedure_type_id,
+            $this->device_id,
+            $this->status_filter,
+            $this->user_id
         ), $fileName);
     }
 
@@ -70,9 +105,9 @@ class ReportsOverview extends Component
         $query = Procedure::whereNotNull('latitude')->whereNotNull('longitude');
 
         if ($this->startDate && $this->endDate) {
-            $query->whereBetween('created_at', [$this->startDate . ' 00:00:00', $this->endDate . ' 23:59:59']);
+            $query->whereBetween('created_at', [$this->startDate.' 00:00:00', $this->endDate.' 23:59:59']);
         }
-        
+
         if ($this->procedure_type_id) {
             $query->where('procedure_type_id', $this->procedure_type_id);
         }
@@ -89,11 +124,15 @@ class ReportsOverview extends Component
             $query->where('device_id', $this->device_id);
         }
 
+        if ($this->user_id) {
+            $query->where('user_id', $this->user_id);
+        }
+
         // Extraemos las coordenadas
-        $coordinates = $query->get(['latitude', 'longitude'])->map(function($item) {
+        $coordinates = $query->get(['latitude', 'longitude'])->map(function ($item) {
             return [
                 'lat' => (float) $item->latitude,
-                'lng' => (float) $item->longitude
+                'lng' => (float) $item->longitude,
             ];
         })->toArray();
 
@@ -107,25 +146,26 @@ class ReportsOverview extends Component
         $query = Procedure::with(['sector', 'procedureType', 'device', 'user'])
             ->whereDate('procedures.created_at', '>=', $this->startDate)
             ->whereDate('procedures.created_at', '<=', $this->endDate)
-            ->when($this->sector_id, fn($q) => $q->where('procedures.sector_id', $this->sector_id))
-            ->when($this->procedure_type_id, fn($q) => $q->where('procedures.procedure_type_id', $this->procedure_type_id))
-            ->when($this->status_filter, fn($q) => $q->where('procedures.status', $this->status_filter))
-            ->when($this->device_id, fn($q) => $q->where('procedures.device_id', $this->device_id));
-        
+            ->when($this->sector_id, fn ($q) => $q->where('procedures.sector_id', $this->sector_id))
+            ->when($this->procedure_type_id, fn ($q) => $q->where('procedures.procedure_type_id', $this->procedure_type_id))
+            ->when($this->status_filter, fn ($q) => $q->where('procedures.status', $this->status_filter))
+            ->when($this->device_id, fn ($q) => $q->where('procedures.device_id', $this->device_id))
+            ->when($this->user_id, fn ($q) => $q->where('procedures.user_id', $this->user_id));
+
         // 2. Calcular KPIs y SLA Promedio
         $totalCases = $query->count();
         $closedCases = (clone $query)->where('procedures.status', 'Cerrado')->count();
 
         $casesForSla = (clone $query)->select(['procedures.id', 'procedures.created_at', 'procedures.dispatched_at', 'procedures.arrived_at', 'procedures.mobile_arrived_at', 'procedures.status'])->get();
-        $dispatchedList = $casesForSla->filter(fn($p) => !is_null($p->dispatched_at));
-        $arrivedList = $casesForSla->filter(fn($p) => !is_null($p->arrived_at));
+        $dispatchedList = $casesForSla->filter(fn ($p) => ! is_null($p->dispatched_at));
+        $arrivedList = $casesForSla->filter(fn ($p) => ! is_null($p->arrived_at));
 
         $avgDispatchSla = $dispatchedList->count() > 0
-            ? round($dispatchedList->avg(fn($p) => $p->created_at->diffInMinutes($p->dispatched_at)), 1)
+            ? round($dispatchedList->avg(fn ($p) => $p->created_at->diffInMinutes($p->dispatched_at)), 1)
             : null;
 
         $avgArrivalSla = $arrivedList->count() > 0
-            ? round($arrivedList->avg(fn($p) => ($p->dispatched_at ?? $p->created_at)->diffInMinutes($p->arrived_at)), 1)
+            ? round($arrivedList->avg(fn ($p) => ($p->dispatched_at ?? $p->created_at)->diffInMinutes($p->arrived_at)), 1)
             : null;
 
         // 3. Gráfico 1: Agrupamos por Sector
@@ -156,7 +196,7 @@ class ReportsOverview extends Component
             $hr = (int) $c->created_at->format('G');
             $hoursCount[$hr]++;
         }
-        $hourlyLabels = collect(range(0, 23))->map(fn($h) => str_pad($h, 2, '0', STR_PAD_LEFT) . ':00')->toJson();
+        $hourlyLabels = collect(range(0, 23))->map(fn ($h) => str_pad($h, 2, '0', STR_PAD_LEFT).':00')->toJson();
         $hourlyValues = collect(array_values($hoursCount))->toJson();
 
         // 6. Traer los resultados paginados para la tabla

@@ -97,7 +97,7 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700">Fecha Desde</label>
                 <input type="date" wire:model.live="startDate" class="mt-1 w-full rounded-md border-gray-300 shadow-sm text-sm">
@@ -113,6 +113,15 @@
                     :options="$sectors"
                     placeholder="Todos los sectores"
                     searchPlaceholder="Digite sector..."
+                />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Operador</label>
+                <x-searchable-select
+                    wire:model.live="user_id"
+                    :options="$operators"
+                    placeholder="Todos los operadores"
+                    searchPlaceholder="Digite operador..."
                 />
             </div>
             <div>

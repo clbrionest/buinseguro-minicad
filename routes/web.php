@@ -13,10 +13,12 @@ use App\Livewire\ManageOperatorShifts;
 use App\Livewire\ManagePatrols;
 use App\Livewire\ManagePreventivePatrols;
 use App\Livewire\ManageUsers;
+use App\Livewire\OperatorReports;
 use App\Livewire\ReportsOverview;
 use App\Livewire\ShowPreventivePatrol;
 use App\Livewire\ShowProcedure;
 use App\Mail\ShiftClosedReportMail;
+use App\Models\AuditLog;
 use App\Models\OperatorShift;
 use App\Models\PreventivePatrol;
 use App\Models\Procedure;
@@ -54,6 +56,49 @@ Route::middleware(['auth'])->group(function () {
 
     Route::view('/documentacion', 'documentation')
         ->name('system.docs');
+
+    // Impresión agrupada en un único PDF (debe declararse antes de /procedimientos/{procedure})
+    Route::get('/procedimientos/imprimir-lote', function (Request $request) {
+        $user = auth()->user();
+        $rawIds = (string) $request->query('ids', '');
+        $ids = array_values(array_unique(array_filter(array_map('intval', explode(',', $rawIds)))));
+
+        if (empty($ids)) {
+            abort(422, 'Debe seleccionar al menos un procedimiento para emitir el informe agrupado.');
+        }
+
+        $procedures = Procedure::with(['sector', 'procedureType', 'initialProcedureType', 'device', 'origin', 'user', 'logs.user', 'evidences.user', 'patrolAssignment.crew', 'children'])
+            ->whereIn('id', array_slice($ids, 0, 50))
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->filter(fn (Procedure $p) => $user && $user->canAccessProcedure($p))
+            ->values();
+
+        if ($procedures->isEmpty()) {
+            abort(403, 'No tienes permisos para visualizar los procedimientos seleccionados.');
+        }
+
+        $watermark = $request->boolean('watermark', true);
+
+        AuditLog::record(
+            'procedure.export',
+            'Reportes',
+            "Emisión de informe PDF agrupado con {$procedures->count()} procedimiento(s).",
+            null,
+            [
+                'format' => 'batch_pdf',
+                'procedure_ids' => $procedures->pluck('id')->toArray(),
+                'watermark' => $watermark,
+            ]
+        );
+
+        return view('procedures.print-batch', [
+            'procedures' => $procedures,
+            'watermark' => $watermark,
+            'from' => $request->query('from'),
+            'to' => $request->query('to'),
+        ]);
+    })->name('procedures.print-batch');
 
     // Rutas operativas generales (Todos los usuarios autenticados)
     Route::get('/procedimientos/{procedure}', ShowProcedure::class)
@@ -112,6 +157,9 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/reportes/llamadas', CallsReport::class)
             ->name('reports.calls');
+
+        Route::get('/mis-reportes', OperatorReports::class)
+            ->name('reports.operator');
 
         Route::get('/eventos-masivos', ManageOperationalEvents::class)
             ->name('events.manage');

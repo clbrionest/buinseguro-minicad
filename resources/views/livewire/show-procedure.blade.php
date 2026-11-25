@@ -34,7 +34,12 @@
         @php $sla = $procedure->sla_traffic_light; @endphp
         <div class="flex flex-wrap items-center gap-2.5">
             <x-cad.priority-badge :sla="$sla" class="bg-black/25! text-white! border-white/20!" />
-            <a href="{{ route('procedures.print', $procedure->id) }}" target="_blank" class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black text-xs font-extrabold py-2 px-3.5 rounded-lg shadow-xs inline-flex items-center gap-1.5 transition">
+            <label class="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/15 border border-white/20 text-brand-white text-[11px] font-bold px-2.5 py-2 rounded-lg cursor-pointer select-none transition"
+                   title="Activar o desactivar marca de agua institucional sobre las fotografías al generar el PDF">
+                <input type="checkbox" wire:model.live="pdfWatermark" class="rounded border-white/40 bg-black/30 text-brand-lime focus:ring-brand-lime">
+                <span>Marca de agua</span>
+            </label>
+            <a href="{{ route('procedures.print', ['procedure' => $procedure->id, 'watermark' => $pdfWatermark ? '1' : '0']) }}" target="_blank" class="bg-brand-lime hover:bg-brand-lime-mid text-brand-black text-xs font-extrabold py-2 px-3.5 rounded-lg shadow-xs inline-flex items-center gap-1.5 transition">
                 <i class="fa-solid fa-print" aria-hidden="true"></i>
                 <span>Ficha Oficial / PDF</span>
             </a>
@@ -436,18 +441,104 @@
             @endif
 
             @if($procedure->evidences->count() > 0)
-            <div class="bg-white shadow-sm rounded-xl p-5 border border-slate-200 border-t-4 border-t-indigo-500">
-                <h3 class="text-sm font-black uppercase text-slate-700 border-b pb-2 mb-3">📷 Evidencia Fotográfica ({{ $procedure->evidences->count() }})</h3>
+            @php
+                $lightboxItems = $procedure->evidences->values()->map(fn ($ev) => [
+                    'url' => asset('storage/' . $ev->file_path),
+                    'date' => $ev->created_at->format('d/m/Y H:i'),
+                    'user' => $ev->user->name ?? 'Sistema',
+                ])->toArray();
+            @endphp
+            <div class="bg-white shadow-sm rounded-xl p-5 border border-slate-200 border-t-4 border-t-indigo-500"
+                 x-data="{
+                     open: false,
+                     currentIndex: 0,
+                     items: @js($lightboxItems),
+                     show(idx) { this.currentIndex = idx; this.open = true; },
+                     close() { this.open = false; },
+                     prev() { this.currentIndex = (this.currentIndex - 1 + this.items.length) % this.items.length; },
+                     next() { this.currentIndex = (this.currentIndex + 1) % this.items.length; }
+                 }"
+                 @keydown.escape.window="if (open) close()"
+                 @keydown.arrow-left.window="if (open && items.length > 1) prev()"
+                 @keydown.arrow-right.window="if (open && items.length > 1) next()">
+                <div class="flex items-center justify-between border-b pb-2 mb-3">
+                    <h3 class="text-sm font-black uppercase text-slate-700">📷 Evidencia Fotográfica ({{ $procedure->evidences->count() }})</h3>
+                    <span class="text-[10px] font-semibold text-slate-400">Clic para ampliar</span>
+                </div>
                 <div class="grid grid-cols-2 gap-2">
-                    @foreach($procedure->evidences as $evidence)
-                        <a href="{{ asset('storage/' . $evidence->file_path) }}" target="_blank" class="block group relative">
-                            <img src="{{ asset('storage/' . $evidence->file_path) }}" class="rounded-lg shadow hover:opacity-75 transition-opacity h-24 w-full object-cover">
-                            <span class="absolute bottom-0 left-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded-bl-lg rounded-tr">
+                    @foreach($procedure->evidences->values() as $idx => $evidence)
+                        <button type="button"
+                                @click="show({{ $idx }})"
+                                class="block group relative text-left rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <img src="{{ asset('storage/' . $evidence->file_path) }}"
+                                 alt="Evidencia #{{ $idx + 1 }}"
+                                 class="rounded-lg shadow group-hover:scale-105 transition-transform duration-200 h-24 w-full object-cover">
+                            <span class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition flex items-center justify-center">
+                                <i class="fa-solid fa-magnifying-glass-plus text-white opacity-0 group-hover:opacity-100 transition text-lg drop-shadow" aria-hidden="true"></i>
+                            </span>
+                            <span class="absolute bottom-0 left-0 bg-black/65 text-white text-[10px] px-1.5 py-0.5 rounded-tr">
                                 {{ $evidence->created_at->format('d/m H:i') }}
                             </span>
-                        </a>
+                        </button>
                     @endforeach
                 </div>
+
+                {{-- LIGHTBOX MODAL --}}
+                <template x-teleport="body">
+                    <div x-show="open"
+                         x-transition.opacity
+                         style="display: none;"
+                         role="dialog"
+                         aria-modal="true"
+                         aria-label="Visor de evidencia fotográfica"
+                         class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xs flex flex-col items-center justify-center p-4"
+                         @click.self="close()">
+                        <div class="w-full max-w-5xl flex items-center justify-between text-white mb-3 px-2">
+                            <div class="text-xs sm:text-sm font-bold flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded bg-white/15 font-mono" x-text="(currentIndex + 1) + ' / ' + items.length"></span>
+                                <span x-text="items[currentIndex]?.date"></span>
+                                <span class="text-white/60">·</span>
+                                <span class="text-white/80" x-text="items[currentIndex]?.user"></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <a :href="items[currentIndex]?.url"
+                                   target="_blank"
+                                   class="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-bold inline-flex items-center gap-1.5 transition">
+                                    <i class="fa-solid fa-up-right-from-square text-[11px]" aria-hidden="true"></i>
+                                    <span>Abrir original</span>
+                                </a>
+                                <button type="button"
+                                        @click="close()"
+                                        aria-label="Cerrar visor"
+                                        class="w-9 h-9 rounded-lg bg-white/15 hover:bg-white/25 text-white inline-flex items-center justify-center transition">
+                                    <i class="fa-solid fa-xmark text-lg" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="relative w-full max-w-5xl flex items-center justify-center">
+                            <button type="button"
+                                    x-show="items.length > 1"
+                                    @click="prev()"
+                                    aria-label="Imagen anterior"
+                                    class="absolute left-2 sm:left-4 z-10 w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 border border-white/20 text-white inline-flex items-center justify-center transition">
+                                <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                            </button>
+
+                            <img :src="items[currentIndex]?.url"
+                                 alt="Evidencia ampliada"
+                                 class="max-h-[78vh] max-w-full rounded-xl shadow-2xl object-contain border border-white/10">
+
+                            <button type="button"
+                                    x-show="items.length > 1"
+                                    @click="next()"
+                                    aria-label="Imagen siguiente"
+                                    class="absolute right-2 sm:right-4 z-10 w-10 h-10 rounded-full bg-black/60 hover:bg-black/85 border border-white/20 text-white inline-flex items-center justify-center transition">
+                                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                </template>
             </div>
             @endif
 
@@ -830,17 +921,43 @@
                         @error('description') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                     </div>
 
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-3 border-t border-slate-100">
-                        <div class="flex items-center gap-3">
-                            <label class="text-xs font-bold text-slate-700">📷 Evidencia (Opcional):</label>
-                            <input type="file" wire:model="photo" accept="image/*" capture="environment" class="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                            @if ($photo)
-                                <img src="{{ $photo->temporaryUrl() }}" class="h-12 w-auto rounded shadow border">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pt-3 border-t border-slate-100">
+                        <div class="space-y-2 flex-1">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <label class="text-xs font-bold text-slate-700">📷 Evidencias (Opcional, múltiples fotos):</label>
+                                <input type="file"
+                                       wire:model="photos"
+                                       multiple
+                                       accept="image/*"
+                                       class="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                            </div>
+
+                            <div wire:loading wire:target="photos" class="text-xs font-semibold text-blue-600">
+                                <i class="fa-solid fa-circle-notch fa-spin mr-1" aria-hidden="true"></i> Cargando vista previa de imágenes...
+                            </div>
+
+                            @if (! empty($photos))
+                                <div class="flex flex-wrap gap-2 pt-1">
+                                    @foreach ($photos as $pIdx => $tempPhoto)
+                                        <div wire:key="pending-photo-{{ $pIdx }}" class="relative group">
+                                            <img src="{{ $tempPhoto->temporaryUrl() }}" class="h-14 w-14 object-cover rounded-lg shadow border border-slate-200">
+                                            <button type="button"
+                                                    wire:click="removePendingPhoto({{ $pIdx }})"
+                                                    aria-label="Quitar imagen"
+                                                    class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white text-[10px] font-black inline-flex items-center justify-center shadow hover:bg-red-700">
+                                                ✕
+                                            </button>
+                                        </div>
+                                    @endforeach
+                                </div>
                             @endif
+
+                            @error('photos') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
+                            @error('photos.*') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
                             @error('photo') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
                         </div>
 
-                        <button type="submit" class="w-full sm:w-auto {{ $submitBtnClass }} text-white font-black py-2.5 px-6 rounded-lg shadow text-sm transition">
+                        <button type="submit" class="w-full sm:w-auto {{ $submitBtnClass }} text-white font-black py-2.5 px-6 rounded-lg shadow text-sm transition shrink-0">
                             {{ $submitLabel }}
                         </button>
                     </div>
