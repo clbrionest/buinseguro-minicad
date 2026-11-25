@@ -1,9 +1,30 @@
 {
-    "version": "1.7.3",
+    "version": "1.7.4",
     "released_at": "2026-11-24",
     "branch": "main",
-    "last_commit": "ee3691a",
+    "last_commit": "a256e10",
     "releases": [
+        {
+            "version": "1.7.4",
+            "date": "2026-11-24",
+            "type": "patch",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #27"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #27 (fix/detalles-ux): reporte para operadorss, subida multiple de fotos, marac de agua, exp…"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Reporte para operadorss, subida multiple de fotos, marac de agua, exportacion masiva de informes"
+                }
+            ]
+        },
         {
             "version": "1.7.3",
             "date": "2026-11-24",

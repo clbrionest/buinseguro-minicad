@@ -3,6 +3,15 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.7.4] - 2026-11-24 — `PR #27`
+**Actualización Automática desde rama principal**
+
+### 🐛 Correcciones (Bug Fixes)
+- **[detalles-ux]** PR #27 (fix/detalles-ux): reporte para operadorss, subida multiple de fotos, marac de agua, exp…
+
+### 🔧 Mantenimiento y Arquitectura (Chores)
+- **[sistema]** Reporte para operadorss, subida multiple de fotos, marac de agua, exportacion masiva de informes
+
 ## [v1.7.3] - 2026-11-24 — `PR #26`
 **Actualización Automática desde rama principal**
 
