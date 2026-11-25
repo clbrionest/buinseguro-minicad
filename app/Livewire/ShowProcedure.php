@@ -35,8 +35,6 @@ class ShowProcedure extends Component
     /** @var array<int, mixed> */
     public $photos = [];
 
-    public bool $pdfWatermark = true;
-
     // Campos contextuales según etapa/actuación (Derivación externa y Cierre)
     public $external_agency = '';
 
