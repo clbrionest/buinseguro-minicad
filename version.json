@@ -1,9 +1,30 @@
 {
-    "version": "1.7.4",
-    "released_at": "2026-11-24",
+    "version": "1.7.5",
+    "released_at": "2026-11-25",
     "branch": "main",
-    "last_commit": "a256e10",
+    "last_commit": "926c64f",
     "releases": [
+        {
+            "version": "1.7.5",
+            "date": "2026-11-25",
+            "type": "patch",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #28"
+            ],
+            "changes": [
+                {
+                    "type": "fix",
+                    "scope": "detalles-ux",
+                    "description": "PR #28 (fix/detalles-ux): fix para reporte"
+                },
+                {
+                    "type": "fix",
+                    "scope": "sistema",
+                    "description": "Fix para reporte"
+                }
+            ]
+        },
         {
             "version": "1.7.4",
             "date": "2026-11-24",
