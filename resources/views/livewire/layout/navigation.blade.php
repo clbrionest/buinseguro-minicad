@@ -83,7 +83,7 @@ new class extends Component
                             : 'text-brand-white/85 hover:bg-white/10 hover:text-brand-white font-semibold px-3 py-1.5 rounded-lg text-xs inline-flex items-center gap-1.5 transition whitespace-nowrap';
 
                         $opsActive = request()->routeIs('field.inspector') || request()->routeIs('events.manage') || request()->routeIs('patrols.manage') || request()->routeIs('patrols.preventive*');
-                        $reportsActive = request()->routeIs('reports.calls') || request()->routeIs('reports.index') || request()->routeIs('audit.logs');
+                        $reportsActive = request()->routeIs('reports.calls') || request()->routeIs('reports.operator') || request()->routeIs('reports.index') || request()->routeIs('audit.logs');
                         $adminActive = request()->routeIs('catalogs.manage') || request()->routeIs('landmarks.manage') || request()->routeIs('users.manage');
                     @endphp
 
@@ -203,6 +203,14 @@ new class extends Component
                                 <div>
                                     <div class="font-bold">Historial Llamadas</div>
                                     <div class="text-[10px] text-ui-muted">Registro telefónico y audios</div>
+                                </div>
+                            </a>
+                            <a href="{{ route('reports.operator') }}"
+                               class="flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold {{ request()->routeIs('reports.operator') ? 'bg-brand-cobalt/10 text-brand-cobalt dark:bg-brand-cobalt-mid/20 dark:text-brand-cobalt-light' : 'text-ui-fg hover:bg-ui-subtle' }}">
+                                <i class="fa-solid fa-file-pdf w-4 text-center text-brand-lime-deep dark:text-brand-lime" aria-hidden="true"></i>
+                                <div>
+                                    <div class="font-bold">Mis Gestiones (PDF)</div>
+                                    <div class="text-[10px] text-ui-muted">Mis casos, llamados y PDF agrupado</div>
                                 </div>
                             </a>
 
@@ -450,6 +458,9 @@ new class extends Component
             </a>
             <a href="{{ route('reports.calls') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('reports.calls') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
                 <i class="fa-solid fa-phone-volume w-4 text-center" aria-hidden="true"></i> Llamadas
+            </a>
+            <a href="{{ route('reports.operator') }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold {{ request()->routeIs('reports.operator') ? 'bg-brand-lime text-brand-black' : 'text-brand-white hover:bg-white/10' }}">
+                <i class="fa-solid fa-file-pdf w-4 text-center" aria-hidden="true"></i> Mis Gestiones (PDF)
             </a>
             @endhasanyrole
             @hasanyrole('Administrador|Supervisor')

@@ -4,8 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ficha Procedimiento #{{ $procedure->id }} - BuinSeguro</title>
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
+        .cad-watermark-overlay {
+            pointer-events: none;
+            user-select: none;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: repeating-linear-gradient(
+                -30deg,
+                rgba(15, 23, 42, 0.04) 0px,
+                rgba(15, 23, 42, 0.04) 24px,
+                transparent 24px,
+                transparent 48px
+            );
+        }
+        .cad-watermark-text {
+            transform: rotate(-28deg);
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.78);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+            text-align: center;
+            line-height: 1.35;
+            padding: 4px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            background: rgba(15, 23, 42, 0.35);
+            border-radius: 4px;
+        }
         @media print {
             .no-print { display: none !important; }
             body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -13,10 +45,11 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900 font-sans py-8 px-4">
+<body class="bg-gray-100 text-gray-900 font-sans py-8 px-4"
+      x-data="{ watermark: {{ request()->boolean('watermark', true) ? 'true' : 'false' }} }">
 
     {{-- BARRA SUPERIOR DE IMPRESIÓN (NO SE IMPRIME) --}}
-    <div class="no-print max-w-4xl mx-auto mb-4 flex justify-between items-center bg-gray-900 text-white p-3 rounded-lg shadow">
+    <div class="no-print max-w-4xl mx-auto mb-4 flex flex-wrap justify-between items-center gap-3 bg-gray-900 text-white p-3 rounded-lg shadow">
         <div class="flex items-center gap-3">
             <a href="{{ route('procedures.show', $procedure->id) }}" class="text-xs font-bold text-gray-300 hover:text-white">
                 ← Volver al Procedimiento #{{ $procedure->id }}
@@ -24,9 +57,15 @@
             <span class="text-gray-600">|</span>
             <span class="text-xs text-gray-300">Vista Previa de Ficha Oficial para Reporte</span>
         </div>
-        <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs py-2 px-4 rounded shadow flex items-center gap-1.5">
-            🖨️ Imprimir / Guardar como PDF
-        </button>
+        <div class="flex flex-wrap items-center gap-3">
+            <label class="inline-flex items-center gap-2 text-xs font-bold text-gray-200 cursor-pointer select-none bg-white/10 px-3 py-1.5 rounded-md border border-white/15">
+                <input type="checkbox" x-model="watermark" class="rounded border-gray-400 text-emerald-500 focus:ring-emerald-400">
+                <span>Marca de agua en evidencias</span>
+            </label>
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs py-2 px-4 rounded shadow flex items-center gap-1.5">
+                🖨️ Imprimir / Guardar como PDF
+            </button>
+        </div>
     </div>
 
     {{-- HOJA DE FICHA OFICIAL --}}
@@ -217,7 +256,16 @@
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     @foreach($procedure->evidences as $ev)
                         <div class="border border-gray-300 rounded p-1.5 text-center">
-                            <img src="{{ asset('storage/' . $ev->file_path) }}" class="w-full h-40 object-cover rounded mb-1">
+                            <div class="relative overflow-hidden rounded mb-1">
+                                <img src="{{ asset('storage/' . $ev->file_path) }}" class="w-full h-40 object-cover">
+                                <div x-show="watermark" class="cad-watermark-overlay">
+                                    <span class="cad-watermark-text">
+                                        BUIN SEGURO<br>
+                                        FOLIO #{{ str_pad($procedure->id, 6, '0', STR_PAD_LEFT) }}<br>
+                                        {{ $ev->created_at->format('d/m/Y H:i') }}
+                                    </span>
+                                </div>
+                            </div>
                             <span class="text-[10px] text-gray-500 block">
                                 Captura: {{ $ev->created_at->format('d/m/Y H:i') }} · {{ $ev->user->name ?? '' }}
                             </span>

@@ -32,6 +32,11 @@ class ShowProcedure extends Component
 
     public $photo;
 
+    /** @var array<int, mixed> */
+    public $photos = [];
+
+    public bool $pdfWatermark = true;
+
     // Campos contextuales según etapa/actuación (Derivación externa y Cierre)
     public $external_agency = '';
 
@@ -511,6 +516,14 @@ class ShowProcedure extends Component
         }
     }
 
+    public function removePendingPhoto(int $index): void
+    {
+        if (is_array($this->photos) && array_key_exists($index, $this->photos)) {
+            unset($this->photos[$index]);
+            $this->photos = array_values($this->photos);
+        }
+    }
+
     public function saveLog()
     {
         $user = Auth::user();
@@ -523,8 +536,14 @@ class ShowProcedure extends Component
         $rules = [
             'action_type' => 'required|string|max:255',
             'photo' => 'nullable|image|max:5120',
+            'photos' => 'nullable|array|max:10',
+            'photos.*' => 'image|max:5120',
         ];
-        $messages = [];
+        $messages = [
+            'photos.max' => 'Puedes adjuntar un máximo de 10 imágenes por actuación.',
+            'photos.*.image' => 'Todos los archivos adjuntos deben ser imágenes válidas.',
+            'photos.*.max' => 'Cada imagen no puede superar los 5 MB.',
+        ];
 
         if ($isDerivation) {
             $rules['external_agency'] = 'required|string|max:255';
@@ -540,8 +559,9 @@ class ShowProcedure extends Component
             $messages['closure_resolution.required'] = 'Seleccione la resolución final para cerrar el procedimiento.';
             $rules['description'] = 'nullable|string|max:2000';
         } else {
-            $rules['description'] = 'required_without:photo|nullable|string|max:2000';
-            $messages['description.required_without'] = 'Ingrese el detalle de la actuación o adjunte una evidencia fotográfica.';
+            $hasAnyPhoto = ! empty($this->photo) || (is_array($this->photos) && count($this->photos) > 0);
+            $rules['description'] = ($hasAnyPhoto ? 'nullable' : 'required').'|string|max:2000';
+            $messages['description.required'] = 'Ingrese el detalle de la actuación o adjunte al menos una evidencia fotográfica.';
         }
 
         $this->validate($rules, $messages);
@@ -560,15 +580,28 @@ class ShowProcedure extends Component
             $resolvedClosure = trim((string) $this->closure_resolution);
         }
 
+        $uploadedCount = 0;
+        $filesToStore = [];
         if ($this->photo) {
-            // Guarda en storage/app/public/evidences y devuelve la ruta
-            $path = $this->photo->store('evidences', 'public');
+            $filesToStore[] = $this->photo;
+        }
+        if (is_array($this->photos)) {
+            foreach ($this->photos as $pFile) {
+                if ($pFile) {
+                    $filesToStore[] = $pFile;
+                }
+            }
+        }
+
+        foreach ($filesToStore as $imgFile) {
+            $path = $imgFile->store('evidences', 'public');
 
             Evidence::create([
                 'procedure_id' => $this->procedure->id,
                 'user_id' => Auth::id(),
                 'file_path' => $path,
             ]);
+            $uploadedCount++;
         }
 
         // 2. Construir descripción estructurada y legible para la bitácora
@@ -592,7 +625,7 @@ class ShowProcedure extends Component
         } else {
             $finalDescription = $userDescription !== ''
                 ? $userDescription
-                : 'Adjunta evidencia fotográfica.';
+                : ($uploadedCount > 1 ? "Adjunta {$uploadedCount} evidencias fotográficas." : 'Adjunta evidencia fotográfica.');
         }
 
         // 3. Guardar la nueva anotación en la bitácora
@@ -669,6 +702,7 @@ class ShowProcedure extends Component
         $this->reset([
             'description',
             'photo',
+            'photos',
             'external_agency',
             'custom_external_agency',
             'external_reference',
