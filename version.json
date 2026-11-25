@@ -1,9 +1,30 @@
 {
-    "version": "1.7.5",
+    "version": "1.8.0",
     "released_at": "2026-11-25",
     "branch": "main",
-    "last_commit": "926c64f",
+    "last_commit": "6011318",
     "releases": [
+        {
+            "version": "1.8.0",
+            "date": "2026-11-25",
+            "type": "minor",
+            "title": "Actualización Automática desde rama principal",
+            "pr_refs": [
+                "PR #29"
+            ],
+            "changes": [
+                {
+                    "type": "feat",
+                    "scope": "reapertura-casos",
+                    "description": "PR #29 (feat/reapertura-casos): opcion de que admin y supervisor puedan reabrir un caso"
+                },
+                {
+                    "type": "chore",
+                    "scope": "sistema",
+                    "description": "Opcion de que admin y supervisor puedan reabrir un caso"
+                }
+            ]
+        },
         {
             "version": "1.7.5",
             "date": "2026-11-25",

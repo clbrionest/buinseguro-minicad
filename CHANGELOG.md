@@ -3,6 +3,15 @@
 Todos los cambios relevantes de este proyecto se documentan automáticamente en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto adhiere a [Semantic Versioning (SemVer 2.0.0)](https://semver.org/lang/es/).
 
+## [v1.8.0] - 2026-11-25 — `PR #29`
+**Actualización Automática desde rama principal**
+
+### ✨ Nuevas Funcionalidades (Features)
+- **[reapertura-casos]** PR #29 (feat/reapertura-casos): opcion de que admin y supervisor puedan reabrir un caso
+
+### 🔧 Mantenimiento y Arquitectura (Chores)
+- **[sistema]** Opcion de que admin y supervisor puedan reabrir un caso
+
 ## [v1.7.5] - 2026-11-25 — `PR #28`
 **Actualización Automática desde rama principal**
 
